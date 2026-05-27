@@ -17,11 +17,18 @@ $options = array(
     'wpog_scripts',
     'wpog_translations',
     'wpog_db_version',
+    'wpog_blocker_rules',
+    'wpog_cookie_policy',
 );
 
 foreach ( $options as $opt ) {
     delete_option( $opt );
 }
 
-$table = $wpdb->prefix . 'wpog_consent_log';
-$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+$tables = array(
+    $wpdb->prefix . 'wpog_consent_log',
+    $wpdb->prefix . 'wpog_detections',
+);
+foreach ( $tables as $table ) {
+    $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+}

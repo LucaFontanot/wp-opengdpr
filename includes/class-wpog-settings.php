@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.0.0';
+    const DB_VERSION = '1.1.0';
 
     public static function defaults( $group ) {
         $defaults = array(
@@ -28,6 +28,9 @@ class WPOG_Settings {
                 'fab_bg_color'         => '',
                 'fab_text_color'       => '',
                 'fab_label'            => '🍪',
+                'reload_on_accept'     => 1,
+                'autoblocker_enabled'  => 1,
+                'tracking_enabled'     => 1,
             ),
             'banner' => array(
                 'position'             => 'bottom',
@@ -142,6 +145,11 @@ class WPOG_Settings {
             'popup_marketing_label'  => 'Marketing',
             'popup_marketing_desc'   => 'These cookies are used to deliver personalised advertisements.',
             'popup_always_active'    => 'Always active',
+            'popup_cookies_summary'  => 'Cookies',
+            'popup_col_name'         => 'Name',
+            'popup_col_provider'     => 'Provider',
+            'popup_col_duration'     => 'Duration',
+            'popup_col_purpose'      => 'Purpose',
             'footer_reopen_link'     => 'Cookie Settings',
             'fab_aria_label'         => 'Open Cookie Settings',
             'shortcode_btn_label'    => 'Cookie Settings',

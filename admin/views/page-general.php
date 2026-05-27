@@ -25,6 +25,12 @@ $g = WPOG_Settings::get( 'general' );
         <td><label><input type="checkbox" name="wpog[anonymize_ip]" value="1" <?php checked( $g['anonymize_ip'] ); ?> /> <?php esc_html_e( 'Required by GDPR', 'wp-opengdpr' ); ?></label></td></tr>
     <tr><th><?php esc_html_e( 'Log retention (days)', 'wp-opengdpr' ); ?></th>
         <td><input type="number" min="0" name="wpog[log_retention_days]" value="<?php echo esc_attr( $g['log_retention_days'] ); ?>" /></td></tr>
+    <tr><th><?php esc_html_e( 'Reload page after consent', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog[reload_on_accept]" value="1" <?php checked( ! empty( $g['reload_on_accept'] ) ); ?> /> <?php esc_html_e( 'Reload the page after the visitor accepts or saves their cookie preferences, so newly-allowed scripts can load cleanly.', 'wp-opengdpr' ); ?></label></td></tr>
+    <tr><th><?php esc_html_e( 'Domain Autoblocker', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog[autoblocker_enabled]" value="1" <?php checked( ! empty( $g['autoblocker_enabled'] ) ); ?> /> <?php esc_html_e( 'Actively block third-party scripts, iframes, images and other assets whose domain is on the Domain Blocker list, until the visitor consents.', 'wp-opengdpr' ); ?></label></td></tr>
+    <tr><th><?php esc_html_e( 'Detection Tracking', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog[tracking_enabled]" value="1" <?php checked( ! empty( $g['tracking_enabled'] ) ); ?> /> <?php esc_html_e( 'When an administrator is browsing the site, record every third-party asset and cookie encountered for review in the Detections page.', 'wp-opengdpr' ); ?></label></td></tr>
 </table>
 <h2><?php esc_html_e( 'Floating Action Button', 'wp-opengdpr' ); ?></h2>
 <p class="description"><?php esc_html_e( 'A floating button that lets users re-open the cookie settings at any time after consenting.', 'wp-opengdpr' ); ?></p>

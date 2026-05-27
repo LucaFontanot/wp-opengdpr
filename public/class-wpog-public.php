@@ -43,15 +43,32 @@ class WPOG_Public {
         $duration = (int) WPOG_Settings::get( 'general', 'consent_duration', 180 );
 
         wp_localize_script( 'wpog-consent', 'WPOG_DATA', array(
-            'ajax_url'     => admin_url( 'admin-ajax.php' ),
-            'nonce'        => wp_create_nonce( 'wpog_consent' ),
-            'cookie_name'  => WPOG_Consent::COOKIE_NAME,
-            'cookie_id'    => WPOG_Consent::COOKIE_ID_NAME,
-            'duration'     => $duration,
-            'version'      => (string) WPOG_Settings::get( 'general', 'policy_version' ),
-            'secure'       => is_ssl(),
-            'samesite'     => 'Lax',
+            'ajax_url'         => admin_url( 'admin-ajax.php' ),
+            'nonce'            => wp_create_nonce( 'wpog_consent' ),
+            'cookie_name'      => WPOG_Consent::COOKIE_NAME,
+            'cookie_id'        => WPOG_Consent::COOKIE_ID_NAME,
+            'duration'         => $duration,
+            'version'          => (string) WPOG_Settings::get( 'general', 'policy_version' ),
+            'secure'           => is_ssl(),
+            'samesite'         => 'Lax',
+            'reload_on_accept' => (int) WPOG_Settings::get( 'general', 'reload_on_accept', 1 ),
         ) );
+
+        // Admin-only detection probe.
+        if ( WPOG_Settings::get( 'general', 'tracking_enabled' ) && is_user_logged_in() && current_user_can( 'manage_options' ) ) {
+            wp_enqueue_script(
+                'wpog-tracking',
+                WPOG_PLUGIN_URL . 'public/assets/wpog-tracking.js',
+                array(),
+                WPOG_VERSION,
+                true
+            );
+            wp_localize_script( 'wpog-tracking', 'WPOG_TRACK', array(
+                'endpoint' => esc_url_raw( rest_url( 'wpog/v1/track' ) ),
+                'nonce'    => wp_create_nonce( 'wp_rest' ),
+                'page_url' => esc_url_raw( home_url( add_query_arg( null, null ) ) ),
+            ) );
+        }
     }
 
     public static function inline_styles() {

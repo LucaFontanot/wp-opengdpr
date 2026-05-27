@@ -49,6 +49,8 @@ class WPOG_Admin {
             'wpog-popup'        => __( 'Popup Appearance', 'wp-opengdpr' ),
             'wpog-categories'   => __( 'Categories & Cookies', 'wp-opengdpr' ),
             'wpog-scripts'      => __( 'Script Manager', 'wp-opengdpr' ),
+            'wpog-blocker'      => __( 'Domain Blocker', 'wp-opengdpr' ),
+            'wpog-tracking'     => __( 'Detections', 'wp-opengdpr' ),
             'wpog-logs'         => __( 'Consent Logs', 'wp-opengdpr' ),
             'wpog-translations' => __( 'Translations', 'wp-opengdpr' ),
             'wpog-settings-io'  => __( 'Export / Import', 'wp-opengdpr' ),
@@ -66,6 +68,8 @@ class WPOG_Admin {
             'wpog-popup'        => 'page-popup.php',
             'wpog-categories'   => 'page-cookies.php',
             'wpog-scripts'      => 'page-scripts.php',
+            'wpog-blocker'      => 'page-blocker.php',
+            'wpog-tracking'     => 'page-tracking.php',
             'wpog-logs'         => 'page-logs.php',
             'wpog-translations' => 'page-translations.php',
             'wpog-settings-io'  => 'page-settings-io.php',
@@ -105,6 +109,9 @@ class WPOG_Admin {
                     'fab_label'          => sanitize_text_field( $in['fab_label'] ?? '🍪' ),
                     'fab_bg_color'       => sanitize_hex_color( $in['fab_bg_color'] ?? '' ) ?: '',
                     'fab_text_color'     => sanitize_hex_color( $in['fab_text_color'] ?? '' ) ?: '',
+                    'reload_on_accept'   => ! empty( $in['reload_on_accept'] ) ? 1 : 0,
+                    'autoblocker_enabled'=> ! empty( $in['autoblocker_enabled'] ) ? 1 : 0,
+                    'tracking_enabled'   => ! empty( $in['tracking_enabled'] ) ? 1 : 0,
                 ) );
                 break;
 
@@ -227,6 +234,54 @@ class WPOG_Admin {
             case 'logs':
                 if ( ! empty( $_POST['wpog_purge'] ) ) {
                     WPOG_Logger::purge_old();
+                }
+                break;
+
+            case 'blocker':
+                $in   = wp_unslash( (array) ( $_POST['wpog']['rules'] ?? array() ) );
+                $rules = array();
+                foreach ( $in as $row ) {
+                    if ( empty( $row['domain'] ) ) {
+                        continue;
+                    }
+                    $rules[] = array(
+                        'domain'   => $row['domain'],
+                        'category' => $row['category'] ?? 'marketing',
+                        'note'     => $row['note'] ?? '',
+                        'active'   => ! empty( $row['active'] ) ? 1 : 0,
+                    );
+                }
+                WPOG_Domain_Blocker::save_all( $rules );
+                break;
+
+            case 'tracking':
+                $action_kind = sanitize_key( $_POST['wpog_action'] ?? '' );
+                $id          = (int) ( $_POST['wpog_id'] ?? 0 );
+                $bulk_ids    = array_map( 'intval', (array) ( $_POST['wpog_ids'] ?? array() ) );
+
+                if ( 'delete_all' === $action_kind ) {
+                    global $wpdb;
+                    $wpdb->query( 'DELETE FROM ' . WPOG_Tracking::table_name() );
+                    break;
+                }
+                if ( $id ) { $bulk_ids = array( $id ); }
+
+                foreach ( $bulk_ids as $iid ) {
+                    if ( $iid <= 0 ) { continue; }
+                    if ( 'ignore' === $action_kind ) {
+                        WPOG_Tracking::set_status( $iid, WPOG_Tracking::STATUS_IGNORED );
+                    } elseif ( 'allow' === $action_kind ) {
+                        WPOG_Tracking::set_status( $iid, WPOG_Tracking::STATUS_ALLOWED );
+                    } elseif ( 'delete' === $action_kind ) {
+                        WPOG_Tracking::delete( $iid );
+                    } elseif ( 'block' === $action_kind ) {
+                        $det = WPOG_Tracking::get( $iid );
+                        if ( $det && ! empty( $det->domain ) ) {
+                            $cat = sanitize_key( $_POST['wpog_block_category'] ?? 'marketing' );
+                            WPOG_Domain_Blocker::add_rule( $det->domain, $cat, $det->value );
+                            WPOG_Tracking::set_status( $iid, WPOG_Tracking::STATUS_BLOCKED );
+                        }
+                    }
                 }
                 break;
 

@@ -54,7 +54,8 @@ class WPOG_Logger {
         if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
             $packed = inet_pton( $ip );
             if ( false !== $packed ) {
-                $packed = -wpog - logger . phpsubstr($packed, 0, 6) . str_repeat("\0", 10);
+                // Zero the last 80 bits (last 10 bytes) of the 16-byte IPv6 address.
+                $packed = substr( $packed, 0, 6 ) . str_repeat( "\0", 10 );
                 return inet_ntop( $packed );
             }
         }

@@ -37,7 +37,7 @@
             $btn.closest('.inside').find('table.wpog-cookies-table tbody').append(row);
             $btn.data('index', i + 1);
         });
-        $(document).on('click', '.wpog-row-del,.wpog-script-del', function () {
+        $(document).on('click', '.wpog-row-del,.wpog-script-del,.wpog-blocker-del', function () {
             $(this).closest('tr').remove();
         });
 
@@ -65,6 +65,24 @@
         $(document).on('click', '.wpog-tr-reset', function () {
             var id = $(this).data('target');
             $('#' + id).val('');
+        });
+
+        // Blocker row add
+        $('#wpog-blocker-add').on('click', function () {
+            var $btn = $(this);
+            var i    = parseInt($btn.data('index'), 10);
+            var cats = ['necessary', 'functional', 'analytics', 'marketing'];
+            var html = '<tr>' +
+                '<td><input type="text" name="wpog[rules][' + i + '][domain]" placeholder="example.com" /></td>' +
+                '<td><select name="wpog[rules][' + i + '][category]">' +
+                    cats.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+                '</select></td>' +
+                '<td><input type="text" name="wpog[rules][' + i + '][note]" placeholder="Vendor / description" /></td>' +
+                '<td><input type="checkbox" name="wpog[rules][' + i + '][active]" value="1" checked /></td>' +
+                '<td><button type="button" class="button wpog-blocker-del">&times;</button></td>' +
+                '</tr>';
+            $('#wpog-blocker-body').append(html);
+            $btn.data('index', i + 1);
         });
     });
 })(jQuery);

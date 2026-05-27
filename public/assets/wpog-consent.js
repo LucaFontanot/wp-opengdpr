@@ -114,16 +114,26 @@
         if (action === 'accept_all') {
             saveConsent('accept_all', { functional: true, analytics: true, marketing: true });
             hidePopup(); hideBanner(); showFab();
+            maybeReload();
         } else if (action === 'reject_all') {
             saveConsent('reject_all', { functional: false, analytics: false, marketing: false });
             hidePopup(); hideBanner(); showFab();
+            maybeReload();
         } else if (action === 'save') {
             saveConsent('custom', getCustomCats());
             hidePopup(); hideBanner(); showFab();
+            maybeReload();
         } else if (action === 'customize') {
             showPopup();
         } else if (action === 'close') {
             hidePopup();
+        }
+    }
+
+    function maybeReload() {
+        if (D.reload_on_accept) {
+            // Defer slightly so the server-side log POST has a chance to flush.
+            setTimeout(function () { window.location.reload(); }, 150);
         }
     }
 

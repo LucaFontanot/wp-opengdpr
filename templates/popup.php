@@ -49,9 +49,14 @@ $labels = array(
                 <p class="wpog-category-desc"><?php echo esc_html( $desc ); ?></p>
                 <?php if ( $show_ext && ! empty( $cats[ $key ]['cookies'] ) ) : ?>
                     <details class="wpog-cookie-details">
-                        <summary>Cookies</summary>
+                        <summary><?php echo esc_html( WPOG_Settings::string( 'popup_cookies_summary' ) ); ?></summary>
                         <table class="wpog-cookie-table">
-                            <thead><tr><th>Name</th><th>Provider</th><th>Duration</th><th>Purpose</th></tr></thead>
+                            <thead><tr>
+                                <th><?php echo esc_html( WPOG_Settings::string( 'popup_col_name' ) ); ?></th>
+                                <th><?php echo esc_html( WPOG_Settings::string( 'popup_col_provider' ) ); ?></th>
+                                <th><?php echo esc_html( WPOG_Settings::string( 'popup_col_duration' ) ); ?></th>
+                                <th><?php echo esc_html( WPOG_Settings::string( 'popup_col_purpose' ) ); ?></th>
+                            </tr></thead>
                             <tbody>
                             <?php foreach ( $cats[ $key ]['cookies'] as $c ) : ?>
                                 <tr>
