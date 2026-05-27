@@ -246,12 +246,57 @@ class WPOG_Admin {
                     }
                     $rules[] = array(
                         'domain'   => $row['domain'],
+                        'path'     => $row['path'] ?? '',
                         'category' => $row['category'] ?? 'marketing',
                         'note'     => $row['note'] ?? '',
                         'active'   => ! empty( $row['active'] ) ? 1 : 0,
                     );
                 }
                 WPOG_Domain_Blocker::save_all( $rules );
+                break;
+
+            case 'add_cookie':
+                // Append a detected cookie to an existing consent category.
+                $det_id   = (int) ( $_POST['wpog_detection_id'] ?? 0 );
+                $cat_key  = sanitize_key( $_POST['wpog_cookie_category'] ?? 'analytics' );
+                $name     = sanitize_text_field( wp_unslash( $_POST['wpog_cookie_name'] ?? '' ) );
+                $provider = sanitize_text_field( wp_unslash( $_POST['wpog_cookie_provider'] ?? '' ) );
+                $duration = sanitize_text_field( wp_unslash( $_POST['wpog_cookie_duration'] ?? '' ) );
+                $purpose  = sanitize_text_field( wp_unslash( $_POST['wpog_cookie_purpose'] ?? '' ) );
+                $privacy  = esc_url_raw( $_POST['wpog_cookie_privacy'] ?? '' );
+
+                if ( $name && in_array( $cat_key, array( 'necessary', 'functional', 'analytics', 'marketing' ), true ) ) {
+                    $cats_data = WPOG_Settings::get( 'categories' );
+                    if ( is_array( $cats_data ) && isset( $cats_data[ $cat_key ] ) ) {
+                        $cats_data[ $cat_key ]['cookies'][] = array(
+                            'name'     => $name,
+                            'provider' => $provider,
+                            'duration' => $duration,
+                            'purpose'  => $purpose,
+                            'privacy'  => $privacy,
+                        );
+                        WPOG_Settings::replace( 'categories', $cats_data );
+                    }
+                    if ( $det_id ) {
+                        WPOG_Tracking::set_status( $det_id, WPOG_Tracking::STATUS_ALLOWED );
+                    }
+                }
+                break;
+
+            case 'add_to_blocker':
+                // Add a domain (+ optional path) rule from the Detections page.
+                $det_id  = (int) ( $_POST['wpog_detection_id'] ?? 0 );
+                $domain  = sanitize_text_field( wp_unslash( $_POST['wpog_block_domain'] ?? '' ) );
+                $path    = sanitize_text_field( wp_unslash( $_POST['wpog_block_path'] ?? '' ) );
+                $cat     = sanitize_key( $_POST['wpog_block_category'] ?? 'marketing' );
+                $note    = sanitize_text_field( wp_unslash( $_POST['wpog_block_note'] ?? '' ) );
+
+                if ( $domain ) {
+                    WPOG_Domain_Blocker::add_rule( $domain, $cat, $note, $path );
+                    if ( $det_id ) {
+                        WPOG_Tracking::set_status( $det_id, WPOG_Tracking::STATUS_BLOCKED );
+                    }
+                }
                 break;
 
             case 'tracking':

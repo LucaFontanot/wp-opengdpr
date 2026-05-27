@@ -7,3 +7,35 @@
 .wpog-preview{max-width:1000px;border-radius:4px;}
 .wpog-banner-message-box .inside{padding-bottom:16px;}
 .wpog-banner-message-box .wp-editor-wrap{margin-top:8px;}
+
+/* ---- Detection status badges ---- */
+.wpog-status{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;text-transform:uppercase;}
+.wpog-status-new{background:#e5f5ff;color:#005f8a;}
+.wpog-status-blocked{background:#fde8e8;color:#8a0000;}
+.wpog-status-allowed{background:#e5f9e5;color:#1a6b1a;}
+.wpog-status-ignored{background:#f0f0f0;color:#555;}
+
+/* ---- Modal dialogs ---- */
+.wpog-dlg-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.55);
+    z-index:100000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.wpog-dlg{
+    background:#fff;
+    border-radius:4px;
+    padding:24px 28px;
+    min-width:480px;
+    max-width:640px;
+    width:90%;
+    max-height:90vh;
+    overflow-y:auto;
+    box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+.wpog-dlg h2{margin-top:0;font-size:18px;}
+.wpog-dlg .form-table th{width:160px;padding:12px 10px 12px 0;}
+.wpog-dlg .form-table td{padding:8px 0;}
+.wpog-dlg-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid #ddd;}
