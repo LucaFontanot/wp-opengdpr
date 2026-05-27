@@ -9,6 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $cats    = WPOG_Settings::get( 'categories' );
 $popup   = WPOG_Settings::get( 'popup' );
+$general = WPOG_Settings::get( 'general' );
 $current = WPOG_Consent::allowed_categories();
 $show_ext = ! empty( $popup['show_extended'] );
 
@@ -76,9 +77,21 @@ $labels = array(
             <?php endif; ?>
         </div>
         <div class="wpog-popup-footer">
-            <button type="button" class="wpog-btn wpog-btn-secondary" data-wpog-action="reject_all"><?php echo esc_html( WPOG_Settings::string( 'popup_reject_all' ) ); ?></button>
-            <button type="button" class="wpog-btn wpog-btn-secondary" data-wpog-action="save"><?php echo esc_html( WPOG_Settings::string( 'popup_save' ) ); ?></button>
-            <button type="button" class="wpog-btn wpog-btn-primary" data-wpog-action="accept_all"><?php echo esc_html( WPOG_Settings::string( 'popup_accept_all' ) ); ?></button>
+            <?php if ( ! empty( $general['privacy_url'] ) || ! empty( $general['cookie_url'] ) ) : ?>
+                <p class="wpog-popup-policy-links">
+                    <?php if ( ! empty( $general['privacy_url'] ) ) : ?>
+                        <a href="<?php echo esc_url( $general['privacy_url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( WPOG_Settings::string( 'banner_privacy_link' ) ); ?></a>
+                    <?php endif; ?>
+                    <?php if ( ! empty( $general['cookie_url'] ) ) : ?>
+                        <a href="<?php echo esc_url( $general['cookie_url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( WPOG_Settings::string( 'banner_cookie_link' ) ); ?></a>
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
+            <div class="wpog-popup-footer-actions">
+                <button type="button" class="wpog-btn wpog-btn-secondary" data-wpog-action="reject_all"><?php echo esc_html( WPOG_Settings::string( 'popup_reject_all' ) ); ?></button>
+                <button type="button" class="wpog-btn wpog-btn-secondary" data-wpog-action="save"><?php echo esc_html( WPOG_Settings::string( 'popup_save' ) ); ?></button>
+                <button type="button" class="wpog-btn wpog-btn-primary" data-wpog-action="accept_all"><?php echo esc_html( WPOG_Settings::string( 'popup_accept_all' ) ); ?></button>
+            </div>
         </div>
     </div>
 </div>

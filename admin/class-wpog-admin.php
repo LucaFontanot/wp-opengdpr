@@ -89,7 +89,7 @@ class WPOG_Admin {
 
         switch ( $form ) {
             case 'general':
-                $in = (array) ( $_POST['wpog'] ?? array() );
+                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 WPOG_Settings::replace( 'general', array(
                     'enabled'            => ! empty( $in['enabled'] ) ? 1 : 0,
                     'consent_duration'   => max( 1, (int) ( $in['consent_duration'] ?? 180 ) ),
@@ -109,7 +109,7 @@ class WPOG_Admin {
                 break;
 
             case 'banner':
-                $in = (array) ( $_POST['wpog'] ?? array() );
+                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 WPOG_Settings::replace( 'banner', array(
                     'position'      => in_array( $in['position'] ?? 'bottom', array( 'top', 'bottom' ), true ) ? $in['position'] : 'bottom',
                     'bg_color'      => sanitize_hex_color( $in['bg_color'] ?? '#ffffff' ),
@@ -127,7 +127,7 @@ class WPOG_Admin {
                 break;
 
             case 'popup':
-                $in = (array) ( $_POST['wpog'] ?? array() );
+                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 WPOG_Settings::replace( 'popup', array(
                     'width'         => max( 280, (int) ( $in['width'] ?? 600 ) ),
                     'overlay_color' => sanitize_text_field( $in['overlay_color'] ?? 'rgba(0,0,0,0.5)' ),
@@ -146,7 +146,7 @@ class WPOG_Admin {
                 break;
 
             case 'categories':
-                $in   = (array) ( $_POST['wpog'] ?? array() );
+                $in   = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 $out  = WPOG_Settings::defaults( 'categories' );
                 foreach ( array( 'necessary', 'functional', 'analytics', 'marketing' ) as $k ) {
                     $row = (array) ( $in[ $k ] ?? array() );
@@ -174,7 +174,7 @@ class WPOG_Admin {
                 break;
 
             case 'scripts':
-                $in  = (array) ( $_POST['wpog']['scripts'] ?? array() );
+                $in  = wp_unslash( (array) ( $_POST['wpog']['scripts'] ?? array() ) );
                 $out = array();
                 foreach ( $in as $row ) {
                     if ( empty( $row['name'] ) && empty( $row['content'] ) ) { continue; }
@@ -193,7 +193,7 @@ class WPOG_Admin {
                 break;
 
             case 'translations':
-                $in   = (array) ( $_POST['wpog']['translations'] ?? array() );
+                $in   = wp_unslash( (array) ( $_POST['wpog']['translations'] ?? array() ) );
                 $keys = array_keys( WPOG_Settings::default_strings() );
                 $out  = array();
                 foreach ( $keys as $k ) {
