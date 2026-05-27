@@ -1,0 +1,31 @@
+/* WP OpenGDPR — banner */
+.wpog-banner{position:fixed;left:0;right:0;bottom:0;z-index:99999;padding:16px;box-shadow:0 -2px 12px rgba(0,0,0,.15);}
+.wpog-banner[hidden]{display:none;}
+.wpog-banner-inner{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
+.wpog-banner-text{flex:1 1 60%;min-width:240px;}
+.wpog-banner-text p{margin:0 0 6px;}
+.wpog-banner-links a{margin-right:12px;text-decoration:underline;color:inherit;}
+.wpog-banner-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.wpog-btn{padding:10px 16px;border:0;cursor:pointer;font-weight:600;line-height:1;}
+.wpog-btn:focus{outline:2px solid #000;outline-offset:2px;}
+.wpog-banner-logo{max-height:40px;width:auto;}
+.wpog-anim-slide{transform:translateY(100%);animation:wpog-slide-in .35s ease forwards;}
+.wpog-pos-top.wpog-anim-slide{transform:translateY(-100%);animation:wpog-slide-in-top .35s ease forwards;}
+.wpog-anim-fade{opacity:0;animation:wpog-fade-in .35s ease forwards;}
+@keyframes wpog-slide-in{to{transform:translateY(0);}}
+@keyframes wpog-slide-in-top{to{transform:translateY(0);}}
+@keyframes wpog-fade-in{to{opacity:1;}}
+@media (max-width:600px){.wpog-banner-actions{width:100%;}.wpog-banner-actions .wpog-btn{flex:1 1 auto;}}
+
+/* Floating Action Button */
+.wpog-fab{position:fixed;z-index:99998;width:48px;height:48px;border-radius:50%;border:0;cursor:pointer;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.3);transition:transform .2s,box-shadow .2s;padding:0;}
+.wpog-fab:hover{transform:scale(1.12);box-shadow:0 4px 18px rgba(0,0,0,.35);}
+.wpog-fab:focus{outline:2px solid #000;outline-offset:3px;}
+.wpog-fab[hidden]{display:none;}
+.wpog-fab--bottom-right{bottom:24px;right:24px;}
+.wpog-fab--bottom-left{bottom:24px;left:24px;}
+
+/* Shortcode button */
+.wpog-settings-link{display:inline-block;cursor:pointer;background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;}
+.wpog-settings-link:hover{opacity:.8;}
+

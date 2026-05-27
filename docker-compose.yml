@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+    volumes:
+      - db_data:/var/lib/mysql
+  wordpress:
+    image: wordpress:php8.2-apache
+    depends_on: [db]
+    ports:
+      - "80:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: true
+    volumes:
+      - ./wp:/var/www/html
+      - ./:/var/www/html/wp-content/plugins/wp-opengdpr
+volumes:
+  db_data:

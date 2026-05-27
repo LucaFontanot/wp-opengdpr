@@ -1,0 +1,27 @@
+/* WP OpenGDPR — popup */
+.wpog-popup-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.wpog-popup-overlay[hidden]{display:none;}
+.wpog-popup{width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 30px rgba(0,0,0,.25);}
+.wpog-popup-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #eee;flex-shrink:0;}
+.wpog-popup-header h2{margin:0;font-size:1.25em;}
+.wpog-popup-close{background:none;border:0;font-size:26px;cursor:pointer;line-height:1;}
+.wpog-popup-body{padding:8px 24px;overflow-y:auto;flex:1 1 auto;}
+.wpog-category{padding:14px 0;border-bottom:1px solid #f0f0f0;}
+.wpog-category:last-child{border-bottom:0;}
+.wpog-category-head{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.wpog-category-desc{margin:6px 0 0;font-size:.92em;opacity:.85;}
+.wpog-always-active{font-size:.85em;opacity:.7;}
+.wpog-toggle{position:relative;display:inline-block;width:44px;height:24px;}
+.wpog-toggle input{opacity:0;width:0;height:0;}
+.wpog-toggle-slider{position:absolute;cursor:pointer;inset:0;border-radius:24px;transition:background .2s;}
+.wpog-toggle-slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;}
+.wpog-toggle input:checked + .wpog-toggle-slider:before{transform:translateX(20px);}
+.wpog-popup-footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #eee;flex-shrink:0;}
+.wpog-cookie-details{margin-top:8px;font-size:.9em;}
+.wpog-cookie-table{width:100%;border-collapse:collapse;margin-top:6px;}
+.wpog-cookie-table th,.wpog-cookie-table td{text-align:left;padding:4px 8px;border-bottom:1px solid #f0f0f0;}
+/* Cookie policy section */
+.wpog-cookie-policy{padding:16px 0 8px;border-top:1px solid #eee;margin-top:8px;font-size:.92em;line-height:1.6;}
+.wpog-cookie-policy a{text-decoration:underline;color:inherit;}
+.wpog-cookie-policy p{margin:0 0 8px;}
+.wpog-cookie-policy p:last-child{margin-bottom:0;}
