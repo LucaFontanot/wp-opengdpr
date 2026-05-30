@@ -39,3 +39,7 @@
 .wpog-dlg .form-table th{width:160px;padding:12px 10px 12px 0;}
 .wpog-dlg .form-table td{padding:8px 0;}
 .wpog-dlg-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid #ddd;}
+
+/* Privacy Consent submenu separator (non-clickable visual divider). */
+.wpog-submenu-sep{display:block;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.5px;opacity:.55;pointer-events:none;}
+#adminmenu .wp-submenu a:has(.wpog-submenu-sep){pointer-events:none;cursor:default;}

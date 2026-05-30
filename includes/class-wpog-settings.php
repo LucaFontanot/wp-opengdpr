@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.1.0';
+    const DB_VERSION = '1.2.0';
 
     public static function defaults( $group ) {
         $defaults = array(
@@ -89,6 +89,38 @@ class WPOG_Settings {
             ),
             'scripts' => array(),
             'translations' => array(),
+            // Form privacy consent module (GDPR Art. 6/7) — independent from
+            // the cookie consent.
+            'form_consent' => array(
+                'enabled'                      => 1,
+                'privacy_policy_version'       => '1.0',
+
+                // Main checkbox (mandatory).
+                'checkbox_main_enabled'        => 1,
+                'checkbox_main_required'       => 1,
+                'checkbox_main_label'          => 'I have read and accept the <a href="{privacy_url}" target="_blank" rel="noopener">Privacy Policy</a> and consent to the processing of my personal data.',
+                'checkbox_main_error'          => 'You must accept the privacy policy to send your message.',
+
+                // Marketing checkbox (optional).
+                'checkbox_marketing_enabled'   => 0,
+                'checkbox_marketing_required'  => 0,
+                'checkbox_marketing_label'     => 'I consent to receive commercial communications and updates.',
+
+                // Behaviour.
+                'block_submit_without_consent' => 1,
+                'log_enabled'                  => 1,
+                'log_retention_days'           => 365,
+
+                // Contact Form 7.
+                'cf7_enabled'                  => 1,
+                'cf7_auto_inject'              => 1,
+                'cf7_form_ids'                 => array(),
+                'cf7_position'                 => 'before_submit',
+
+                // WPForms.
+                'wpforms_enabled'              => 1,
+                'wpforms_form_ids'             => array(),
+            ),
         );
         return isset( $defaults[ $group ] ) ? $defaults[ $group ] : array();
     }

@@ -18,6 +18,7 @@ class WPOG_Admin {
         add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
         add_action( 'admin_init', array( __CLASS__, 'handle_post' ) );
         add_action( 'admin_post_wpog_export_logs', array( __CLASS__, 'export_logs' ) );
+        add_action( 'admin_post_wpog_export_form_logs', array( __CLASS__, 'export_form_logs' ) );
         add_action( 'admin_post_wpog_export_translations', array( __CLASS__, 'export_translations' ) );
         add_action( 'admin_post_wpog_export_settings', array( __CLASS__, 'export_settings' ) );
     }
@@ -34,17 +35,39 @@ class WPOG_Admin {
     }
 
     public static function menu() {
+        // ── 1. GDPR Settings (plugin-wide) ──────────────────────────────────
         add_menu_page(
-            __( 'Cookie Consent', 'wp-opengdpr' ),
-            __( 'Cookie Consent', 'wp-opengdpr' ),
+            __( 'GDPR Settings', 'wp-opengdpr' ),
+            __( 'GDPR Settings', 'wp-opengdpr' ),
             self::CAP,
             self::SLUG,
             array( __CLASS__, 'route' ),
             'dashicons-shield-alt',
             80
         );
-        $pages = array(
+        // First entry uses the same slug as the parent to rename the auto-generated item.
+        $gdpr_pages = array(
             'wpog'              => __( 'General Settings', 'wp-opengdpr' ),
+            'wpog-translations' => __( 'Translations', 'wp-opengdpr' ),
+            'wpog-settings-io'  => __( 'Export / Import', 'wp-opengdpr' ),
+        );
+        foreach ( $gdpr_pages as $slug => $title ) {
+            add_submenu_page( self::SLUG, $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
+        }
+
+        // ── 2. Cookie Consent ────────────────────────────────────────────────
+        add_menu_page(
+            __( 'Cookie Consent', 'wp-opengdpr' ),
+            __( 'Cookie Consent', 'wp-opengdpr' ),
+            self::CAP,
+            'wpog-cookie',
+            array( __CLASS__, 'route' ),
+            'dashicons-admin-site-alt3',
+            81
+        );
+        // 'wpog-cookie' as first slug overrides the auto-generated duplicate entry.
+        $cookie_pages = array(
+            'wpog-cookie'       => __( 'Cookie Settings', 'wp-opengdpr' ),
             'wpog-banner'       => __( 'Banner Appearance', 'wp-opengdpr' ),
             'wpog-popup'        => __( 'Popup Appearance', 'wp-opengdpr' ),
             'wpog-categories'   => __( 'Categories & Cookies', 'wp-opengdpr' ),
@@ -52,18 +75,42 @@ class WPOG_Admin {
             'wpog-blocker'      => __( 'Domain Blocker', 'wp-opengdpr' ),
             'wpog-tracking'     => __( 'Detections', 'wp-opengdpr' ),
             'wpog-logs'         => __( 'Consent Logs', 'wp-opengdpr' ),
-            'wpog-translations' => __( 'Translations', 'wp-opengdpr' ),
-            'wpog-settings-io'  => __( 'Export / Import', 'wp-opengdpr' ),
         );
-        foreach ( $pages as $slug => $title ) {
-            add_submenu_page( self::SLUG, $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
+        foreach ( $cookie_pages as $slug => $title ) {
+            add_submenu_page( 'wpog-cookie', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
+        }
+
+        // ── 3. Privacy Consent ───────────────────────────────────────────────
+        add_menu_page(
+            __( 'Privacy Consent', 'wp-opengdpr' ),
+            __( 'Privacy Consent', 'wp-opengdpr' ),
+            self::CAP,
+            'wpog-privacy',
+            array( __CLASS__, 'route' ),
+            'dashicons-privacy',
+            82
+        );
+        // 'wpog-privacy' as first slug overrides the auto-generated duplicate entry.
+        $privacy_pages = array(
+            'wpog-privacy'           => __( 'Privacy Settings', 'wp-opengdpr' ),
+            'wpog-form-texts'        => __( 'Texts & Labels', 'wp-opengdpr' ),
+            'wpog-form-integrations' => __( 'Form Integrations', 'wp-opengdpr' ),
+            'wpog-form-logs'         => __( 'Form Consent Logs', 'wp-opengdpr' ),
+        );
+        foreach ( $privacy_pages as $slug => $title ) {
+            add_submenu_page( 'wpog-privacy', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
         }
     }
 
     public static function route() {
         $screen = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : 'wpog';
         $map = array(
+            // GDPR Settings menu
             'wpog'              => 'page-general.php',
+            'wpog-translations' => 'page-translations.php',
+            'wpog-settings-io'  => 'page-settings-io.php',
+            // Cookie Consent menu ('wpog-cookie' is the top-level → shows cookie settings page)
+            'wpog-cookie'       => 'page-cookie-settings.php',
             'wpog-banner'       => 'page-banner.php',
             'wpog-popup'        => 'page-popup.php',
             'wpog-categories'   => 'page-cookies.php',
@@ -71,8 +118,12 @@ class WPOG_Admin {
             'wpog-blocker'      => 'page-blocker.php',
             'wpog-tracking'     => 'page-tracking.php',
             'wpog-logs'         => 'page-logs.php',
-            'wpog-translations' => 'page-translations.php',
-            'wpog-settings-io'  => 'page-settings-io.php',
+            // Privacy Consent menu ('wpog-privacy' is the top-level → shows privacy settings page)
+            'wpog-privacy'           => 'page-form-consent.php',
+            'wpog-form-consent'      => 'page-form-consent.php',
+            'wpog-form-texts'        => 'page-form-texts.php',
+            'wpog-form-integrations' => 'page-form-integrations.php',
+            'wpog-form-logs'         => 'page-form-logs.php',
         );
         $view = $map[ $screen ] ?? 'page-general.php';
         echo '<div class="wrap wpog-wrap">';
@@ -94,24 +145,30 @@ class WPOG_Admin {
         switch ( $form ) {
             case 'general':
                 $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
-                WPOG_Settings::replace( 'general', array(
-                    'enabled'            => ! empty( $in['enabled'] ) ? 1 : 0,
-                    'consent_duration'   => max( 1, (int) ( $in['consent_duration'] ?? 180 ) ),
-                    'policy_version'     => sanitize_text_field( $in['policy_version'] ?? '1.0' ),
-                    'privacy_url'        => esc_url_raw( $in['privacy_url'] ?? '' ),
-                    'cookie_url'         => esc_url_raw( $in['cookie_url'] ?? '' ),
-                    'eu_only'            => ! empty( $in['eu_only'] ) ? 1 : 0,
-                    'log_enabled'        => ! empty( $in['log_enabled'] ) ? 1 : 0,
-                    'anonymize_ip'       => ! empty( $in['anonymize_ip'] ) ? 1 : 0,
-                    'log_retention_days' => max( 0, (int) ( $in['log_retention_days'] ?? 365 ) ),
-                    'fab_enabled'        => ! empty( $in['fab_enabled'] ) ? 1 : 0,
-                    'fab_position'       => in_array( $in['fab_position'] ?? 'bottom-right', array( 'bottom-right', 'bottom-left' ), true ) ? $in['fab_position'] : 'bottom-right',
-                    'fab_label'          => sanitize_text_field( $in['fab_label'] ?? '🍪' ),
-                    'fab_bg_color'       => sanitize_hex_color( $in['fab_bg_color'] ?? '' ) ?: '',
-                    'fab_text_color'     => sanitize_hex_color( $in['fab_text_color'] ?? '' ) ?: '',
-                    'reload_on_accept'   => ! empty( $in['reload_on_accept'] ) ? 1 : 0,
-                    'autoblocker_enabled'=> ! empty( $in['autoblocker_enabled'] ) ? 1 : 0,
-                    'tracking_enabled'   => ! empty( $in['tracking_enabled'] ) ? 1 : 0,
+                WPOG_Settings::update( 'general', array(
+                    'privacy_url' => esc_url_raw( $in['privacy_url'] ?? '' ),
+                    'cookie_url'  => esc_url_raw( $in['cookie_url'] ?? '' ),
+                ) );
+                break;
+
+            case 'cookie_settings':
+                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
+                WPOG_Settings::update( 'general', array(
+                    'enabled'             => ! empty( $in['enabled'] ) ? 1 : 0,
+                    'consent_duration'    => max( 1, (int) ( $in['consent_duration'] ?? 180 ) ),
+                    'policy_version'      => sanitize_text_field( $in['policy_version'] ?? '1.0' ),
+                    'eu_only'             => ! empty( $in['eu_only'] ) ? 1 : 0,
+                    'log_enabled'         => ! empty( $in['log_enabled'] ) ? 1 : 0,
+                    'anonymize_ip'        => ! empty( $in['anonymize_ip'] ) ? 1 : 0,
+                    'log_retention_days'  => max( 0, (int) ( $in['log_retention_days'] ?? 365 ) ),
+                    'fab_enabled'         => ! empty( $in['fab_enabled'] ) ? 1 : 0,
+                    'fab_position'        => in_array( $in['fab_position'] ?? 'bottom-right', array( 'bottom-right', 'bottom-left' ), true ) ? $in['fab_position'] : 'bottom-right',
+                    'fab_label'           => sanitize_text_field( $in['fab_label'] ?? '🍪' ),
+                    'fab_bg_color'        => sanitize_hex_color( $in['fab_bg_color'] ?? '' ) ?: '',
+                    'fab_text_color'      => sanitize_hex_color( $in['fab_text_color'] ?? '' ) ?: '',
+                    'reload_on_accept'    => ! empty( $in['reload_on_accept'] ) ? 1 : 0,
+                    'autoblocker_enabled' => ! empty( $in['autoblocker_enabled'] ) ? 1 : 0,
+                    'tracking_enabled'    => ! empty( $in['tracking_enabled'] ) ? 1 : 0,
                 ) );
                 break;
 
@@ -352,9 +409,56 @@ class WPOG_Admin {
                 $policy = wp_kses_post( wp_unslash( $_POST['wpog_cookie_policy'] ?? '' ) );
                 update_option( 'wpog_cookie_policy', $policy );
                 break;
+
+            case 'form_general':
+                $in = wp_unslash( (array) ( $_POST['wpog_fc'] ?? array() ) );
+                WPOG_Settings::update( 'form_consent', array(
+                    'enabled'                      => ! empty( $in['enabled'] ) ? 1 : 0,
+                    'privacy_policy_version'       => sanitize_text_field( $in['privacy_policy_version'] ?? '1.0' ),
+                    'block_submit_without_consent' => ! empty( $in['block_submit_without_consent'] ) ? 1 : 0,
+                    'log_enabled'                  => ! empty( $in['log_enabled'] ) ? 1 : 0,
+                    'log_retention_days'           => max( 0, (int) ( $in['log_retention_days'] ?? 365 ) ),
+                ) );
+                break;
+
+            case 'form_texts':
+                $in           = wp_unslash( (array) ( $_POST['wpog_fc'] ?? array() ) );
+                $allowed_tags = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
+                WPOG_Settings::update( 'form_consent', array(
+                    'checkbox_main_enabled'       => ! empty( $in['checkbox_main_enabled'] ) ? 1 : 0,
+                    'checkbox_main_required'      => ! empty( $in['checkbox_main_required'] ) ? 1 : 0,
+                    'checkbox_main_label'         => wp_kses( $in['checkbox_main_label'] ?? '', $allowed_tags ),
+                    'checkbox_main_error'         => sanitize_text_field( $in['checkbox_main_error'] ?? '' ),
+                    'checkbox_marketing_enabled'  => ! empty( $in['checkbox_marketing_enabled'] ) ? 1 : 0,
+                    'checkbox_marketing_required' => ! empty( $in['checkbox_marketing_required'] ) ? 1 : 0,
+                    'checkbox_marketing_label'    => wp_kses( $in['checkbox_marketing_label'] ?? '', $allowed_tags ),
+                ) );
+                break;
+
+            case 'form_integrations':
+                $in   = wp_unslash( (array) ( $_POST['wpog_fc'] ?? array() ) );
+                $mode = in_array( $in['cf7_mode'] ?? 'auto', array( 'auto', 'manual' ), true ) ? $in['cf7_mode'] : 'auto';
+                $pos  = in_array( $in['cf7_position'] ?? 'before_submit', array( 'before_submit', 'after_fields' ), true ) ? $in['cf7_position'] : 'before_submit';
+                $ids  = array_values( array_filter( array_map( 'intval', (array) ( $in['cf7_form_ids'] ?? array() ) ) ) );
+                $wpf_ids = array_values( array_filter( array_map( 'intval', (array) ( $in['wpforms_form_ids'] ?? array() ) ) ) );
+                WPOG_Settings::update( 'form_consent', array(
+                    'cf7_enabled'      => ! empty( $in['cf7_enabled'] ) ? 1 : 0,
+                    'cf7_auto_inject'  => 'auto' === $mode ? 1 : 0,
+                    'cf7_position'     => 'manual' === $mode ? 'manual' : $pos,
+                    'cf7_form_ids'     => $ids,
+                    'wpforms_enabled'  => ! empty( $in['wpforms_enabled'] ) ? 1 : 0,
+                    'wpforms_form_ids' => $wpf_ids,
+                ) );
+                break;
+
+            case 'form_logs':
+                if ( ! empty( $_POST['wpog_purge'] ) ) {
+                    WPOG_Form_Consent_Logger::purge_old();
+                }
+                break;
         }
 
-        wp_safe_redirect( add_query_arg( 'updated', '1', wp_get_referer() ?: admin_url( 'admin.php?page=' . self::SLUG ) ) );
+        wp_safe_redirect( add_query_arg( 'updated', '1', wp_get_raw_referer() ?: admin_url( 'admin.php?page=' . self::SLUG ) ) );
         exit;
     }
 
@@ -385,7 +489,36 @@ class WPOG_Admin {
         exit;
     }
 
-    public static function export_translations() {        if ( ! current_user_can( self::CAP ) ) {
+    public static function export_form_logs() {
+        if ( ! current_user_can( self::CAP ) ) {
+            wp_die( 'Forbidden' );
+        }
+        check_admin_referer( self::NONCE );
+
+        $args = array(
+            'from'          => sanitize_text_field( $_GET['from'] ?? '' ),
+            'to'            => sanitize_text_field( $_GET['to'] ?? '' ),
+            'form_id'       => sanitize_text_field( $_GET['form_id'] ?? '' ),
+            'consent_given' => isset( $_GET['consent_given'] ) && '' !== $_GET['consent_given'] ? (int) $_GET['consent_given'] : '',
+            'per_page'      => 100000,
+            'page'          => 1,
+        );
+        $res = WPOG_Form_Consent_Logger::query( $args );
+
+        nocache_headers();
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=wpog-form-consent-logs.csv' );
+        $fh = fopen( 'php://output', 'w' );
+        fputcsv( $fh, array( 'id', 'consent_id', 'date', 'form_id', 'form_type', 'form_title', 'page_url', 'consent_given', 'marketing_consent', 'consent_text', 'privacy_version', 'ip', 'user_agent' ) );
+        foreach ( $res['rows'] as $r ) {
+            fputcsv( $fh, array( $r->id, $r->consent_id, $r->consent_date, $r->form_id, $r->form_type, $r->form_title, $r->page_url, $r->consent_given, $r->marketing_consent, $r->consent_text, $r->privacy_version, $r->ip_address, $r->user_agent ) );
+        }
+        fclose( $fh );
+        exit;
+    }
+
+    public static function export_translations() {
+        if ( ! current_user_can( self::CAP ) ) {
             wp_die( 'Forbidden' );
         }
         check_admin_referer( self::NONCE );

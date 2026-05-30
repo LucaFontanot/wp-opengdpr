@@ -1,0 +1,59 @@
+/* WP OpenGDPR — Form privacy consent checkbox styles. */
+.wpog-form-consent-wrapper {
+    margin: 1em 0;
+    padding: 0.75em 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+.wpog-consent-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5em;
+    margin: 0.5em 0;
+}
+
+.wpog-consent-field label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    margin: 0;
+    cursor: pointer;
+}
+
+.wpog-consent-field input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+    /* Never pre-ticked: do not add checked via CSS or JS. */
+}
+
+.wpog-consent-label {
+    font-size: 0.875em;
+    line-height: 1.4;
+    color: #555;
+}
+
+.wpog-consent-label a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* Error state */
+.wpog-consent-field.wpog-consent-error .wpog-consent-label {
+    color: #cc0000;
+}
+
+.wpog-consent-field.wpog-consent-error input[type="checkbox"] {
+    outline: 2px solid #cc0000;
+}
+
+.wpog-consent-error-msg {
+    display: none;
+    flex-basis: 100%;
+    font-size: 0.8125em;
+    color: #cc0000;
+}
+
+.wpog-consent-field.wpog-consent-error .wpog-consent-error-msg {
+    display: block;
+}
