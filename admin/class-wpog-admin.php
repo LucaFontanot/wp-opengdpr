@@ -190,10 +190,20 @@ class WPOG_Admin {
 
         switch ( $form ) {
             case 'general':
-                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
+                $in              = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
+                $privacy_page_id = max( 0, (int) ( $in['privacy_page_id'] ?? 0 ) );
+                $cookie_page_id  = max( 0, (int) ( $in['cookie_page_id'] ?? 0 ) );
+                $terms_page_id   = max( 0, (int) ( $in['terms_page_id'] ?? 0 ) );
+                $privacy_url     = $privacy_page_id > 0 ? get_permalink( $privacy_page_id ) : esc_url_raw( $in['privacy_url'] ?? '' );
+                $cookie_url      = $cookie_page_id  > 0 ? get_permalink( $cookie_page_id )  : esc_url_raw( $in['cookie_url']  ?? '' );
+                $terms_url       = $terms_page_id   > 0 ? get_permalink( $terms_page_id )   : esc_url_raw( $in['terms_url']   ?? '' );
                 WPOG_Settings::update( 'general', array(
-                    'privacy_url' => esc_url_raw( $in['privacy_url'] ?? '' ),
-                    'cookie_url'  => esc_url_raw( $in['cookie_url'] ?? '' ),
+                    'privacy_url'     => $privacy_url     ?: '',
+                    'privacy_page_id' => $privacy_page_id,
+                    'cookie_url'      => $cookie_url      ?: '',
+                    'cookie_page_id'  => $cookie_page_id,
+                    'terms_url'       => $terms_url       ?: '',
+                    'terms_page_id'   => $terms_page_id,
                 ) );
                 break;
 
