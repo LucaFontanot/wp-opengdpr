@@ -33,6 +33,11 @@ class WPOG_Loader {
         require_once WPOG_PLUGIN_DIR . 'includes/form-consent/class-wpog-wpforms-integration.php';
         require_once WPOG_PLUGIN_DIR . 'includes/form-consent/class-wpog-form-consent.php';
 
+        // Terms & Conditions module (e-commerce / WooCommerce).
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent-logger.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-woocommerce-integration.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent.php';
+
         // Core wiring.
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-core.php';
 

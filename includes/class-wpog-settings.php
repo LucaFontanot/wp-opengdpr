@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.2.0';
+    const DB_VERSION = '1.3.0';
 
     public static function defaults( $group ) {
         $defaults = array(
@@ -120,6 +120,47 @@ class WPOG_Settings {
                 // WPForms.
                 'wpforms_enabled'              => 1,
                 'wpforms_form_ids'             => array(),
+            ),
+            // Terms & Conditions module (e-commerce) — independent from the
+            // cookie and form consent modules.
+            'terms_consent' => array(
+                'enabled'                    => 1,
+
+                // Documents.
+                'terms_page_id'              => 0,
+                'terms_version'              => '1.0',
+                'terms_last_updated'         => '',
+                'privacy_page_id'            => 0,
+
+                // Checkout behaviour.
+                'require_terms_acceptance'   => 1,
+                'require_privacy_acceptance' => 1,
+                'show_marketing_consent'     => 0,
+                'require_age_verification'   => 0,
+                'minimum_age'                => 18,
+
+                // Checkbox labels.
+                'terms_checkbox_label'       => 'I have read and accept the <a href="{terms_url}" target="_blank" rel="noopener">Terms & Conditions of Sale</a>.',
+                'privacy_checkbox_label'     => 'I have read and accept the <a href="{privacy_url}" target="_blank" rel="noopener">Privacy Policy</a> and consent to the processing of my data to fulfil my order.',
+                'marketing_checkbox_label'   => 'I would like to receive offers and updates by email.',
+                'age_checkbox_label'         => 'I confirm that I am at least {min_age} years old.',
+
+                // Error messages.
+                'terms_error_message'        => 'You must accept the Terms & Conditions to complete your order.',
+                'privacy_error_message'      => 'You must accept the Privacy Policy to complete your order.',
+                'age_error_message'          => 'You must be at least {min_age} years old to purchase on our site.',
+
+                // Log.
+                'log_enabled'                => 1,
+                'log_save_to_order_meta'     => 1,
+                'log_retention_days'         => 730,
+
+                // WooCommerce.
+                'woocommerce_enabled'        => 1,
+                'wc_checkout_position'       => 'before_submit',
+                'wc_replace_native_terms'    => 0,
+                'wc_show_terms_inline'       => 0,
+                'wc_order_column'            => 1,
             ),
         );
         return isset( $defaults[ $group ] ) ? $defaults[ $group ] : array();

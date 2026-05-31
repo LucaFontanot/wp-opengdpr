@@ -1,0 +1,56 @@
+/**
+ * Terms & Conditions — checkout consent field styling.
+ */
+.wpog-terms-consent-wrapper {
+    margin: 1em 0;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-field {
+    margin: 0 0 0.6em;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-field label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-field input[type="checkbox"] {
+    margin-top: 0.2em;
+    flex: 0 0 auto;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-label a {
+    text-decoration: underline;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-field.wpog-consent-error {
+    color: #dc3232;
+}
+
+.wpog-terms-consent-wrapper .wpog-consent-field.wpog-consent-error input[type="checkbox"] {
+    outline: 2px solid #dc3232;
+    outline-offset: 1px;
+}
+
+.wpog-terms-consent-wrapper .wpog-terms-inline {
+    margin-bottom: 0.8em;
+    padding: 0.5em 0.75em;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.wpog-terms-consent-wrapper .wpog-terms-inline summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.wpog-terms-consent-wrapper .wpog-terms-inline-body {
+    margin-top: 0.6em;
+    max-height: 240px;
+    overflow-y: auto;
+    font-size: 0.9em;
+}

@@ -19,6 +19,7 @@ class WPOG_Admin {
         add_action( 'admin_init', array( __CLASS__, 'handle_post' ) );
         add_action( 'admin_post_wpog_export_logs', array( __CLASS__, 'export_logs' ) );
         add_action( 'admin_post_wpog_export_form_logs', array( __CLASS__, 'export_form_logs' ) );
+        add_action( 'admin_post_wpog_export_terms_logs', array( __CLASS__, 'export_terms_logs' ) );
         add_action( 'admin_post_wpog_export_translations', array( __CLASS__, 'export_translations' ) );
         add_action( 'admin_post_wpog_export_settings', array( __CLASS__, 'export_settings' ) );
     }
@@ -100,6 +101,27 @@ class WPOG_Admin {
         foreach ( $privacy_pages as $slug => $title ) {
             add_submenu_page( 'wpog-privacy', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
         }
+
+        // ── 4. Terms & Conditions (e-commerce) ───────────────────────────────
+        add_menu_page(
+            __( 'Terms & Conditions', 'wp-opengdpr' ),
+            __( 'Terms & Conditions', 'wp-opengdpr' ),
+            self::CAP,
+            'wpog-terms',
+            array( __CLASS__, 'route' ),
+            'dashicons-cart',
+            83
+        );
+        // 'wpog-terms' as first slug overrides the auto-generated duplicate entry.
+        $terms_pages = array(
+            'wpog-terms'             => __( 'General Settings', 'wp-opengdpr' ),
+            'wpog-terms-documents'   => __( 'Documents & Versions', 'wp-opengdpr' ),
+            'wpog-terms-woocommerce' => __( 'WooCommerce', 'wp-opengdpr' ),
+            'wpog-terms-logs'        => __( 'Acceptance Logs', 'wp-opengdpr' ),
+        );
+        foreach ( $terms_pages as $slug => $title ) {
+            add_submenu_page( 'wpog-terms', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
+        }
     }
 
     public static function route() {
@@ -124,6 +146,11 @@ class WPOG_Admin {
             'wpog-form-texts'        => 'page-form-texts.php',
             'wpog-form-integrations' => 'page-form-integrations.php',
             'wpog-form-logs'         => 'page-form-logs.php',
+            // Terms & Conditions menu ('wpog-terms' is the top-level → general settings)
+            'wpog-terms'             => 'page-terms-consent.php',
+            'wpog-terms-documents'   => 'page-terms-documents.php',
+            'wpog-terms-woocommerce' => 'page-terms-woocommerce.php',
+            'wpog-terms-logs'        => 'page-terms-logs.php',
         );
         $view = $map[ $screen ] ?? 'page-general.php';
         echo '<div class="wrap wpog-wrap">';
@@ -456,6 +483,73 @@ class WPOG_Admin {
                     WPOG_Form_Consent_Logger::purge_old();
                 }
                 break;
+
+            case 'terms_general':
+                $in = wp_unslash( (array) ( $_POST['wpog_tc'] ?? array() ) );
+                WPOG_Settings::update( 'terms_consent', array(
+                    'enabled'                    => ! empty( $in['enabled'] ) ? 1 : 0,
+                    'terms_page_id'              => max( 0, (int) ( $in['terms_page_id'] ?? 0 ) ),
+                    'terms_version'              => sanitize_text_field( $in['terms_version'] ?? '1.0' ),
+                    'terms_last_updated'         => sanitize_text_field( $in['terms_last_updated'] ?? '' ),
+                    'privacy_page_id'            => max( 0, (int) ( $in['privacy_page_id'] ?? 0 ) ),
+                    'require_terms_acceptance'   => ! empty( $in['require_terms_acceptance'] ) ? 1 : 0,
+                    'require_privacy_acceptance' => ! empty( $in['require_privacy_acceptance'] ) ? 1 : 0,
+                    'show_marketing_consent'     => ! empty( $in['show_marketing_consent'] ) ? 1 : 0,
+                    'require_age_verification'   => ! empty( $in['require_age_verification'] ) ? 1 : 0,
+                    'minimum_age'                => max( 0, (int) ( $in['minimum_age'] ?? 18 ) ),
+                    'log_retention_days'         => max( 0, (int) ( $in['log_retention_days'] ?? 730 ) ),
+                ) );
+                break;
+
+            case 'terms_texts':
+                $in           = wp_unslash( (array) ( $_POST['wpog_tc'] ?? array() ) );
+                $allowed_tags = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
+                WPOG_Settings::update( 'terms_consent', array(
+                    'terms_checkbox_label'     => wp_kses( $in['terms_checkbox_label'] ?? '', $allowed_tags ),
+                    'privacy_checkbox_label'   => wp_kses( $in['privacy_checkbox_label'] ?? '', $allowed_tags ),
+                    'marketing_checkbox_label' => wp_kses( $in['marketing_checkbox_label'] ?? '', $allowed_tags ),
+                    'age_checkbox_label'       => sanitize_text_field( $in['age_checkbox_label'] ?? '' ),
+                    'terms_error_message'      => sanitize_text_field( $in['terms_error_message'] ?? '' ),
+                    'privacy_error_message'    => sanitize_text_field( $in['privacy_error_message'] ?? '' ),
+                    'age_error_message'        => sanitize_text_field( $in['age_error_message'] ?? '' ),
+                ) );
+                break;
+
+            case 'terms_woocommerce':
+                $in  = wp_unslash( (array) ( $_POST['wpog_tc'] ?? array() ) );
+                $pos = in_array( $in['wc_checkout_position'] ?? 'before_submit', array( 'before_submit', 'after_terms' ), true ) ? $in['wc_checkout_position'] : 'before_submit';
+                WPOG_Settings::update( 'terms_consent', array(
+                    'woocommerce_enabled'     => ! empty( $in['woocommerce_enabled'] ) ? 1 : 0,
+                    'wc_checkout_position'    => $pos,
+                    'wc_replace_native_terms' => ! empty( $in['wc_replace_native_terms'] ) ? 1 : 0,
+                    'wc_show_terms_inline'    => ! empty( $in['wc_show_terms_inline'] ) ? 1 : 0,
+                    'log_save_to_order_meta'  => ! empty( $in['log_save_to_order_meta'] ) ? 1 : 0,
+                    'wc_order_column'         => ! empty( $in['wc_order_column'] ) ? 1 : 0,
+                ) );
+                break;
+
+            case 'terms_register_version':
+                $version = sanitize_text_field( wp_unslash( $_POST['wpog_tc_version'] ?? '' ) );
+                $date    = sanitize_text_field( wp_unslash( $_POST['wpog_tc_effective_date'] ?? '' ) );
+                $reason  = sanitize_textarea_field( wp_unslash( $_POST['wpog_tc_reason'] ?? '' ) );
+                if ( '' === $date ) {
+                    $date = current_time( 'Y-m-d' );
+                }
+                if ( '' !== $version ) {
+                    WPOG_Terms_Consent::register_version( $version, $date, $reason );
+                    // Keep the active document version in sync.
+                    WPOG_Settings::update( 'terms_consent', array(
+                        'terms_version'      => $version,
+                        'terms_last_updated' => $date,
+                    ) );
+                }
+                break;
+
+            case 'terms_logs':
+                if ( ! empty( $_POST['wpog_purge'] ) ) {
+                    WPOG_Terms_Consent_Logger::purge_old();
+                }
+                break;
         }
 
         wp_safe_redirect( add_query_arg( 'updated', '1', wp_get_raw_referer() ?: admin_url( 'admin.php?page=' . self::SLUG ) ) );
@@ -517,8 +611,36 @@ class WPOG_Admin {
         exit;
     }
 
-    public static function export_translations() {
+    public static function export_terms_logs() {
         if ( ! current_user_can( self::CAP ) ) {
+            wp_die( 'Forbidden' );
+        }
+        check_admin_referer( self::NONCE );
+
+        $args = array(
+            'from'          => sanitize_text_field( $_GET['from'] ?? '' ),
+            'to'            => sanitize_text_field( $_GET['to'] ?? '' ),
+            'document_type' => sanitize_text_field( $_GET['document_type'] ?? '' ),
+            'version'       => sanitize_text_field( $_GET['version'] ?? '' ),
+            'order_id'      => isset( $_GET['order_id'] ) ? (int) $_GET['order_id'] : '',
+            'per_page'      => 100000,
+            'page'          => 1,
+        );
+        $res = WPOG_Terms_Consent_Logger::query( $args );
+
+        nocache_headers();
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=wpog-terms-consent-logs.csv' );
+        $fh = fopen( 'php://output', 'w' );
+        fputcsv( $fh, array( 'id', 'consent_id', 'date', 'order_id', 'user_id', 'document_type', 'document_version', 'document_hash', 'consent_given', 'context', 'integration', 'page_url', 'ip', 'user_agent' ) );
+        foreach ( $res['rows'] as $r ) {
+            fputcsv( $fh, array( $r->id, $r->consent_id, $r->consent_date, $r->order_id, $r->user_id, $r->document_type, $r->document_version, $r->document_hash, $r->consent_given, $r->context, $r->integration, $r->page_url, $r->ip_address, $r->user_agent ) );
+        }
+        fclose( $fh );
+        exit;
+    }
+
+    public static function export_translations() {        if ( ! current_user_can( self::CAP ) ) {
             wp_die( 'Forbidden' );
         }
         check_admin_referer( self::NONCE );

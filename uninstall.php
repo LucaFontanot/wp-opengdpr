@@ -20,6 +20,8 @@ $options = array(
     'wpog_blocker_rules',
     'wpog_cookie_policy',
     'wpog_form_consent',
+    'wpog_terms_consent',
+    'wpog_terms_versions',
 );
 
 foreach ( $options as $opt ) {
@@ -30,6 +32,7 @@ $tables = array(
     $wpdb->prefix . 'wpog_consent_log',
     $wpdb->prefix . 'wpog_detections',
     $wpdb->prefix . 'wpog_form_consent_log',
+    $wpdb->prefix . 'wpog_terms_consent_log',
 );
 foreach ( $tables as $table ) {
     $wpdb->query( "DROP TABLE IF EXISTS {$table}" );

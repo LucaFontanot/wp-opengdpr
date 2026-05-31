@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> Living technical map of the **WP OpenGDPR** plugin (v1.0.1). Keep this in sync
+> Living technical map of the **WP OpenGDPR** plugin (v1.0.3). Keep this in sync
 > when adding/removing files, classes, REST routes, options or DB tables.
 
 ---
@@ -42,7 +42,7 @@ wp-opengdpr.php  ── bootstraps WPOG_Loader → loads everything → instanti
 
 ```
 wp-opengdpr/
-├── wp-opengdpr.php                    Plugin header + bootstrap (v1.0.1)
+├── wp-opengdpr.php                    Plugin header + bootstrap (v1.0.3); declares WooCommerce HPOS compatibility
 ├── uninstall.php                      Drops options + tables
 ├── includes/
 │   ├── class-wpog-loader.php          Single source of truth for require_once chain
@@ -60,6 +60,10 @@ wp-opengdpr/
 │   │   ├── class-wpog-form-consent-logger.php {prefix}wpog_form_consent_log I/O
 │   │   ├── class-wpog-cf7-integration.php     Contact Form 7 integration
 │   │   └── class-wpog-wpforms-integration.php WPForms integration
+│   ├── terms-consent/
+│   │   ├── class-wpog-terms-consent.php             T&C module bootstrap (e-commerce)
+│   │   ├── class-wpog-terms-consent-logger.php      {prefix}wpog_terms_consent_log I/O
+│   │   └── class-wpog-woocommerce-integration.php   WooCommerce checkout integration
 │   └── rest/
 │       └── class-wpog-rest.php             Registers /wpog/v1/* REST routes
 ├── admin/
@@ -82,7 +86,11 @@ wp-opengdpr/
 │       ├── page-form-consent.php      Privacy Consent — general settings
 │       ├── page-form-texts.php        Privacy Consent — checkbox texts & labels
 │       ├── page-form-integrations.php Privacy Consent — CF7 / WPForms / form-builder integrations
-│       └── page-form-logs.php         Privacy Consent — form consent log + CSV export
+│       ├── page-form-logs.php         Privacy Consent — form consent log + CSV export
+│       ├── page-terms-consent.php     T&C — general settings + checkbox texts
+│       ├── page-terms-documents.php   T&C — version history (register version, SHA-256 hash)
+│       ├── page-terms-woocommerce.php T&C — WooCommerce checkout integration options
+│       └── page-terms-logs.php        T&C — acceptance log + integrity check + CSV export
 ├── public/
 │   ├── class-wpog-public.php          Enqueue, inline styles, banner/popup render
 │   └── assets/
@@ -92,7 +100,9 @@ wp-opengdpr/
 │       ├── wpog-blocker.js            Autoblocker (createElement / MutationObserver)
 │       ├── wpog-tracking.js           Admin-only detection probe
 │       ├── wpog-form-consent.css      Form consent checkbox styles
-│       └── wpog-form-consent.js       Form consent client-side validation (UX)
+│       ├── wpog-form-consent.js       Form consent client-side validation (UX)
+│       ├── wpog-terms-consent.css     T&C checkout checkbox styles
+│       └── wpog-terms-consent.js      T&C checkout client-side validation (UX)
 ├── templates/
 │   ├── banner.php
 │   └── popup.php
@@ -117,9 +127,12 @@ wp-opengdpr/
 | `WPOG_Form_Consent_Logger` | `{prefix}wpog_form_consent_log` I/O: `install_table()`, `ensure_table()`, `log()` (always anonymises IP via `WPOG_Logger::anonymize_ip()`, never stores form payload), `query()`, `form_ids()`, `stats()` (totals + 30-day series), `purge_old()`. |
 | `WPOG_CF7_Integration` | Contact Form 7 glue. Auto-injects the checkbox before the submit button via `wpcf7_form_elements`, registers `[wpog_privacy_consent]`/`[wpog_marketing_consent]` manual form-tags, blocks submission with missing mandatory consent via `wpcf7_spam`, and logs the proof via `wpcf7_before_send_mail`. Reads consent from `$_POST` (auto-injected raw inputs are not in CF7's `get_posted_data()`). Field constants: `FIELD_MAIN` (`wpog-privacy-consent`), `FIELD_MARKETING` (`wpog-marketing-consent`). |
 | `WPOG_WPForms_Integration` | WPForms glue (Lite + Pro). Echoes the consent checkbox(es) before the submit button via the `wpforms_display_submit_before` action (markup shared with CF7 through `WPOG_CF7_Integration::render_consent_checkboxes()`), blocks submission with missing mandatory consent via `wpforms_process` → `wpforms()->process->errors[$form_id]['header']`, and logs the proof via `wpforms_process_complete`. Reads consent from `$_POST` (custom inputs are not in WPForms' `$fields`); `page_url` from `$_POST['wpforms']['page_url']`. Reuses `FIELD_MAIN`/`FIELD_MARKETING` from `WPOG_CF7_Integration`. `wpforms_form_ids` (empty = all) scopes which forms receive injection. |
+| `WPOG_Terms_Consent` | Bootstrap of the e-commerce Terms & Conditions module (independent from the other two). `init()` loads `WPOG_WooCommerce_Integration` when WooCommerce is active. Provides URL/label helpers (`terms_url()`, `privacy_url()` — falls back to `wpog_general.privacy_url`; `terms_label()`/`privacy_label()`/`marketing_label()`/`age_label()` resolve `{terms_url}`/`{privacy_url}`/`{min_age}`), Terms text + SHA-256 fingerprint (`terms_content()`, `terms_hash()`), and version-history storage in the `wpog_terms_versions` option (`get_versions()`, `register_version()`). `enqueue_assets()` loads `wpog-terms-consent.{css,js}` on demand. |
+| `WPOG_Terms_Consent_Logger` | `{prefix}wpog_terms_consent_log` I/O: `install_table()`, `ensure_table()`, `log()` (always anonymises IP via `WPOG_Logger::anonymize_ip()`), `query()`, `versions()`, `stats()` (totals + per-type + 30-day series), `purge_old()`. `DOCUMENT_TYPES` = `terms`, `privacy`, `marketing`, `age`. |
+| `WPOG_WooCommerce_Integration` | WooCommerce classic-checkout glue (HPOS compatible). Injects the consent checkboxes via `woocommerce_review_order_before_submit` (or `woocommerce_checkout_after_terms_and_conditions`), validates server-side via `woocommerce_checkout_process` (`wc_add_notice` blocks the order; marketing never blocks), saves the log + order meta via `woocommerce_checkout_order_created` (meta written through `$order->update_meta_data()`/`save()`), shows the recorded consent in the admin order screen (`woocommerce_admin_order_data_after_billing_address`), adds a "GDPR consents" order-list column (legacy `manage_*_posts_columns` + HPOS `manage_woocommerce_page_wc-orders_columns`), optionally hides the native WC terms checkbox (`woocommerce_checkout_show_terms` → `__return_false`), and shows a Block-Checkout incompatibility admin notice (`has_block('woocommerce/checkout')`). Field constants: `FIELD_TERMS` (`wpog_terms_consent`), `FIELD_PRIVACY` (`wpog_privacy_consent_wc`), `FIELD_MARKETING` (`wpog_marketing_consent_wc`), `FIELD_AGE` (`wpog_age_consent`). |
 | `WPOG_REST` | Registers REST routes under `wpog/v1`. Namespace constant: `WPOG_REST::NAMESPACE_V1`. Permission callback: `manage_options`. |
 | `WPOG_Public` | Enqueues frontend CSS/JS, localises `WPOG_DATA` (consent runtime config), `WPOG_TRACK` (admin-only, contains `endpoint`, `nonce`, `page_url`). Renders banner+popup+FAB. |
-| `WPOG_Admin` | Registers three top-level WP admin menus (**GDPR Settings** slug `wpog`, **Cookie Consent** slug `wpog-cookie`, **Privacy Consent** slug `wpog-privacy`); `route()` maps page slugs to view files; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys — both use `WPOG_Settings::update()`); export handlers. Nonce constant: `WPOG_Admin::NONCE`. |
+| `WPOG_Admin` | Registers four top-level WP admin menus (**GDPR Settings** slug `wpog`, **Cookie Consent** slug `wpog-cookie`, **Privacy Consent** slug `wpog-privacy`, **Terms & Conditions** slug `wpog-terms`); `route()` maps page slugs to view files; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_texts`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`. |
 
 ---
 
@@ -131,6 +144,7 @@ wp-opengdpr/
 | `public/assets/wpog-blocker.js` | All visitors (when `autoblocker_enabled`) | Overrides `document.createElement` and uses a `MutationObserver` on `document.documentElement` to neuter third-party assets whose domain (and optional path prefix) matches a rule in `WPOG_BLOCKER_CONFIG`. Listens for `wpog:consent` to restore blocked elements. Extends to shadow DOM via `attachShadow` override. Exposes `window.WPOG_BLOCKER = { rescan, unblock, rules }` for diagnostics. |
 | `public/assets/wpog-tracking.js` | Logged-in admins only | Scans the page for `<script src>`, `<iframe src>`, `<img src>`, `<link href>` and `document.cookie` — records every asset and cookie, skipping the plugin's own `wpog_consent[_id]` cookies and `data:` URLs. Deduplicates per page load, batches and `POST`s to `/wpog/v1/track` using a `wp_rest` nonce (`X-WP-Nonce` header). Re-scans on DOM mutations and on `beforeunload`. |
 | `public/assets/wpog-form-consent.js` | Pages with a CF7 or WPForms form | Progressive-enhancement validation for the form consent checkbox. Binds to `.wpcf7-form` and `.wpforms-form`. Relies on the native `required` attribute + server-side validation; this script just adds inline error UX and scroll-into-view on submit. No localisation. |
+| `public/assets/wpog-terms-consent.js` | WooCommerce classic checkout | Listens for the `checkout_place_order` jQuery event; highlights missing mandatory T&C/Privacy/Age checkboxes (`.wpog-consent-error`), scrolls to the first error and returns `false` to block the WooCommerce AJAX submit. Server-side `wc_add_notice` remains authoritative. Depends on `jquery`. |
 | `admin/assets/admin.js` | Admin only | Color picker, media picker, repeatable-row UI for cookies / scripts / blocker rules. |
 
 ### Blocker boot contract
@@ -182,7 +196,9 @@ When an admin clicks **Add to Category**, `WPOG_Admin::handle_post()`
 | `wpog_translations` | Per-key overrides for `WPOG_Settings::default_strings()`. |
 | `wpog_cookie_policy` | Optional HTML appended to the popup body. |
 | `wpog_form_consent` | Form privacy-consent module (independent from cookie consent). Keys: `enabled`, `privacy_policy_version`, `block_submit_without_consent`, `log_enabled`, `log_retention_days`, `checkbox_main_enabled`, `checkbox_main_required`, `checkbox_main_label` (supports a single `<a>`, `{privacy_url}` placeholder), `checkbox_main_error`, `checkbox_marketing_enabled`, `checkbox_marketing_required`, `checkbox_marketing_label`, `cf7_enabled`, `cf7_auto_inject`, `cf7_position` (`before_submit`/`after_fields`/`manual`), `cf7_form_ids` (empty = all), `wpforms_enabled`, `wpforms_form_ids` (empty = all). Saved across three admin pages via `WPOG_Settings::update()` (merge). |
-| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.2.0`). |
+| `wpog_terms_consent` | Terms & Conditions module (e-commerce). Keys: `enabled`, `terms_page_id`, `terms_version`, `terms_last_updated`, `privacy_page_id`, `require_terms_acceptance`, `require_privacy_acceptance`, `show_marketing_consent`, `require_age_verification`, `minimum_age`, `terms_checkbox_label` (`{terms_url}`/`{privacy_url}`), `privacy_checkbox_label` (`{privacy_url}`), `marketing_checkbox_label`, `age_checkbox_label` (`{min_age}`), `terms_error_message`, `privacy_error_message`, `age_error_message` (`{min_age}`), `log_enabled`, `log_save_to_order_meta`, `log_retention_days` (default 730), `woocommerce_enabled`, `wc_checkout_position` (`before_submit`/`after_terms`), `wc_replace_native_terms`, `wc_show_terms_inline`, `wc_order_column`. Saved across the General/WooCommerce admin pages via `WPOG_Settings::update()`. |
+| `wpog_terms_versions` | T&C version history: `[ { version, effective_date, reason, hash (SHA-256), status (active/historic) } ]`. Written by `WPOG_Terms_Consent::register_version()` from the **Documents & Versions** page. |
+| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.3.0`). |
 
 ---
 
@@ -193,6 +209,11 @@ When an admin clicks **Add to Category**, `WPOG_Admin::handle_post()`
 | `{prefix}wpog_consent_log` | `WPOG_Logger` | `id, consent_id, consent_date, ip_address, user_agent, necessary, functional, analytics, marketing, action, policy_version, created_at`. |
 | `{prefix}wpog_detections`  | `WPOG_Tracking` | `id, type, value, domain, page_url, first_seen, last_seen, hits, status, category_hint, value_hash`. Unique key on `(type, value_hash)`. |
 | `{prefix}wpog_form_consent_log` | `WPOG_Form_Consent_Logger` | `id, consent_id, form_id, form_type, form_title, page_url, consent_given, marketing_consent, consent_text, privacy_version, ip_address, user_agent, consent_date, created_at`. Audit-trail proof of form consent (GDPR Art. 7). IP always anonymised; form payload never stored. |
+| `{prefix}wpog_terms_consent_log` | `WPOG_Terms_Consent_Logger` | `id, consent_id, order_id, user_id, document_type, document_version, document_hash, consent_given, ip_address, user_agent, page_url, context, integration, consent_date, created_at`. Audit-trail proof of T&C/Privacy/Marketing/Age acceptance at checkout. IP always anonymised; `document_hash` is the SHA-256 of the Terms text at acceptance time. |
+
+Terms-consent `document_type` values: `terms`, `privacy`, `marketing`, `age`.
+Terms-consent `context` values: `checkout`, `registration`, `account`, `generic`.
+Terms-consent `integration` values: `woocommerce`, `generic`.
 
 Detection `status` values: `new` (default), `blocked`, `allowed`, `ignored`.
 Detection `type` values: `script`, `iframe`, `img`, `link`, `cookie`.
@@ -225,7 +246,7 @@ AJAX (still on `admin-ajax.php`):
 
 | Hook | Registered by | Frequency | Handler |
 |---|---|---|---|
-| `wpog_daily_event` | `WPOG_Core::activate()` | `daily` | `WPOG_Logger::purge_old()` — purges old consent log rows; `WPOG_Form_Consent_Logger::purge_old()` — purges old form-consent log rows (both hooked to the same event). |
+| `wpog_daily_event` | `WPOG_Core::activate()` | `daily` | `WPOG_Logger::purge_old()` — purges old consent log rows; `WPOG_Form_Consent_Logger::purge_old()` — purges old form-consent log rows; `WPOG_Terms_Consent_Logger::purge_old()` — purges old T&C acceptance log rows (all hooked to the same event). |
 
 ---
 
@@ -260,6 +281,21 @@ AJAX (still on `admin-ajax.php`):
   modes render identical markup with the same field names; checkbox CSS classes:
   `wpog-form-consent-wrapper`, `wpog-consent-field`, `wpog-consent-label`,
   `wpog-consent-error`.
+- T&C consent admin POST inputs use the `wpog_tc[...]` prefix; `wpog_form`
+  router values: `terms_general`, `terms_texts`, `terms_woocommerce`,
+  `terms_register_version`, `terms_logs`. CSV export action:
+  `wpog_export_terms_logs`.
+- T&C checkout field names: `wpog_terms_consent`, `wpog_privacy_consent_wc`
+  (both mandatory when required), `wpog_marketing_consent_wc` (optional),
+  `wpog_age_consent` (mandatory when age-verification on). Compared against the
+  exact string `'1'`. Checkout CSS classes: `wpog-terms-consent-wrapper`,
+  `wpog-consent-field`, `wpog-consent-label`, `wpog-consent-error`.
+- T&C order meta keys: `_wpog_terms_consent`, `_wpog_privacy_consent`,
+  `_wpog_marketing_consent`, `_wpog_age_consent`, `_wpog_terms_version`,
+  `_wpog_terms_hash`, `_wpog_consent_date`, `_wpog_consent_ip` — always written
+  via `$order->update_meta_data()` / `$order->save()` (HPOS-safe).
+- WooCommerce HPOS compatibility is declared in `wp-opengdpr.php` on
+  `before_woocommerce_init` via `FeaturesUtil::declare_compatibility('custom_order_tables', …)`.
 
 ---
 
@@ -303,7 +339,47 @@ Flow (WPForms, Lite + Pro):
 
 ---
 
-## 13. Open follow-ups
+## 13. Terms & Conditions module (e-commerce / WooCommerce)
+
+Third independent module (dedicated to e-commerce), separate from cookie and form
+consent. Wired in `WPOG_Core` via `WPOG_Terms_Consent::init()`, which only loads
+the WooCommerce glue when `class_exists('WooCommerce')`. WooCommerce HPOS
+compatibility is declared in `wp-opengdpr.php`.
+
+Flow (WooCommerce classic checkout):
+
+1. `WPOG_WooCommerce_Integration::inject_consent_checkboxes()` renders the Terms,
+   Privacy, optional Marketing and optional Age checkboxes at
+   `woocommerce_review_order_before_submit` (or `…after_terms_and_conditions`),
+   with dedicated field names so they never collide with WC's native `terms`
+   checkbox. An optional collapsible inline Terms box can precede them.
+2. Client side: `wpog-terms-consent.js` highlights missing mandatory boxes and
+   returns `false` on `checkout_place_order` for immediate UX.
+3. `validate_consent()` (`woocommerce_checkout_process`) calls `wc_add_notice(…,'error')`
+   for each missing mandatory consent, which blocks order creation. Marketing is
+   never validated and never blocks the order.
+4. `save_consent_data()` (`woocommerce_checkout_order_created`) writes one
+   audit-trail row per document type via `WPOG_Terms_Consent_Logger::log()`
+   (recording the SHA-256 hash of the Terms text as `document_hash`) and, when
+   `log_save_to_order_meta` is on, mirrors the proof to order meta via
+   `$order->update_meta_data()` / `save()` (HPOS-safe).
+5. `display_consent_in_order_admin()` shows a "GDPR consents" box in the order
+   screen; an optional order-list column renders ✓/✗ for both legacy and HPOS
+   order tables.
+
+The Block (Gutenberg) Checkout is detected via `has_block('woocommerce/checkout')`
+and only triggers an admin notice — the consent fields require the Classic
+Checkout. Version history (with per-version SHA-256 hashes) is managed on the
+**Documents & Versions** page and stored in `wpog_terms_versions`; the
+acceptance log page offers filters, CSV export and an integrity check comparing
+each stored Terms hash against the current page hash.
+
+Checkboxes are never pre-ticked. IP anonymisation is mandatory and shared via
+`WPOG_Logger::anonymize_ip()`.
+
+---
+
+## 14. Open follow-ups
 
 - Vendor-purpose mapping (multi-category rules per domain) — for now one rule is
   one category.
@@ -316,3 +392,8 @@ Flow (WPForms, Lite + Pro):
   Elementor Forms and a generic WordPress-hook integration are stubbed as
   "coming soon" in the Form Integrations page.
 - Form consent appearance is functional-only CSS; no admin colour controls yet.
+- T&C module: Block (Gutenberg) Checkout shows only an admin notice — a custom
+  Gutenberg checkout block for native compatibility is a future expansion.
+- T&C module: only WooCommerce is integrated; a generic (non-WC) checkout
+  integration (`integration = 'generic'`, contexts `registration`/`account`) is
+  scaffolded in the logger but has no front-end yet.

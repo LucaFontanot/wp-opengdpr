@@ -34,6 +34,11 @@ class WPOG_Core {
         // submission (which runs in an admin context).
         WPOG_Form_Consent::init();
 
+        // Terms & Conditions module (e-commerce) — registered on every request:
+        // rendering happens on the front-end checkout while validation/logging
+        // and the order-list column run in the admin context.
+        WPOG_Terms_Consent::init();
+
         // Frontend.
         if ( ! is_admin() ) {
             WPOG_Script_Blocker::init();
@@ -49,6 +54,7 @@ class WPOG_Core {
         // Daily cleanup of old logs.
         add_action( 'wpog_daily_event', array( 'WPOG_Logger', 'purge_old' ) );
         add_action( 'wpog_daily_event', array( 'WPOG_Form_Consent_Logger', 'purge_old' ) );
+        add_action( 'wpog_daily_event', array( 'WPOG_Terms_Consent_Logger', 'purge_old' ) );
     }
 
     public function load_textdomain() {
@@ -59,6 +65,7 @@ class WPOG_Core {
         WPOG_Logger::install_table();
         WPOG_Tracking::install_table();
         WPOG_Form_Consent_Logger::install_table();
+        WPOG_Terms_Consent_Logger::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
         if ( ! wp_next_scheduled( 'wpog_daily_event' ) ) {
             wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wpog_daily_event' );
@@ -79,6 +86,7 @@ class WPOG_Core {
         WPOG_Logger::install_table();
         WPOG_Tracking::install_table();
         WPOG_Form_Consent_Logger::install_table();
+        WPOG_Terms_Consent_Logger::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
     }
 
