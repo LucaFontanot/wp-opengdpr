@@ -43,7 +43,10 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
 
         add_action( 'woocommerce_init', array( __CLASS__, 'register_fields' ) );
-        add_action( 'woocommerce_store_api_checkout_order_processed', array( __CLASS__, 'save_consent_data' ), 10, 1 );
+        // Fire after payment is confirmed. Also hook 'completed' for virtual/free orders
+        // that skip 'processing'. A duplicate-guard on order meta prevents double logging.
+        add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'save_consent_data' ), 10, 1 );
+        add_action( 'woocommerce_order_status_completed',  array( __CLASS__, 'save_consent_data' ), 10, 1 );
 
         // Suppress native WC Terms block when our fields handle consent.
         add_filter( 'render_block', array( __CLASS__, 'suppress_native_terms_block' ), 10, 2 );
@@ -74,19 +77,21 @@ class WPOG_WooCommerce_Blocks_Integration {
 
     /**
      * Register each consent field with the WC Additional Checkout Fields API.
-     * WC renders labels as plain text, so HTML links are inlined as "text (url)".
+     * WooCommerce blocks' CheckboxControl renders the label via dangerouslySetInnerHTML,
+     * so HTML (specifically <a> links) is supported and renders as clickable inline links.
      */
     public static function register_fields() {
         if ( ! function_exists( 'woocommerce_register_additional_checkout_field' ) ) {
             return;
         }
 
-        $s = WPOG_Settings::get( 'terms_consent' );
+        $s       = WPOG_Settings::get( 'terms_consent' );
+        $allowed = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
 
         if ( ! empty( $s['require_terms_acceptance'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/terms_consent',
-                'label'    => self::plain_label( WPOG_Terms_Consent::terms_label() ),
+                'label'    => wp_kses( WPOG_Terms_Consent::terms_label(), $allowed ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -96,7 +101,7 @@ class WPOG_WooCommerce_Blocks_Integration {
         if ( ! empty( $s['require_privacy_acceptance'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/privacy_consent',
-                'label'    => self::plain_label( WPOG_Terms_Consent::privacy_label() ),
+                'label'    => wp_kses( WPOG_Terms_Consent::privacy_label(), $allowed ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -106,7 +111,7 @@ class WPOG_WooCommerce_Blocks_Integration {
         if ( ! empty( $s['show_marketing_consent'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/marketing_consent',
-                'label'    => self::plain_label( WPOG_Terms_Consent::marketing_label() ),
+                'label'    => wp_kses( WPOG_Terms_Consent::marketing_label(), $allowed ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => false,
@@ -116,7 +121,7 @@ class WPOG_WooCommerce_Blocks_Integration {
         if ( ! empty( $s['require_age_verification'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/age_consent',
-                'label'    => self::plain_label( WPOG_Terms_Consent::age_label() ),
+                'label'    => esc_html( WPOG_Terms_Consent::age_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -124,37 +129,31 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
     }
 
-    /**
-     * Convert an HTML label to plain text suitable for the WC block checkout.
-     * <a href="URL">text</a> → "text (URL)"; remaining tags are stripped.
-     * Empty hrefs are omitted: <a href="">text</a> → "text".
-     */
-    private static function plain_label( $html ) {
-        $plain = preg_replace_callback(
-            '/<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/is',
-            static function ( $m ) {
-                $url  = trim( $m[1] );
-                $text = wp_strip_all_tags( $m[2] );
-                return $url ? "{$text} ({$url})" : $text;
-            },
-            $html
-        );
-        return wp_strip_all_tags( $plain ?? $html );
-    }
-
     /* ---------- logging ---------- */
 
     /**
      * Persist the consent proof to the log table and optionally to order meta.
-     * Runs on woocommerce_store_api_checkout_order_processed, which fires once
-     * after the order is fully created and validated, right before payment —
-     * the Block Checkout equivalent of woocommerce_checkout_order_created.
-     * Field values are already written to order meta by WC at this point.
      *
-     * @param WC_Order $order The order being processed.
+     * Hooked on woocommerce_order_status_processing (paid orders) and
+     * woocommerce_order_status_completed (virtual / free orders that skip
+     * the 'processing' status). A meta flag prevents double-logging when an
+     * order moves through both statuses.
+     *
+     * The WC Additional Checkout Fields API writes _wc_additional_field_wpog/*
+     * order meta when the customer submits the block checkout, so by the time
+     * either status hook fires the values are already in the order.
+     *
+     * @param int $order_id The order ID.
      */
-    public static function save_consent_data( $order ) {
+    public static function save_consent_data( $order_id ) {
+        $order = wc_get_order( $order_id );
         if ( ! $order instanceof WC_Order ) {
+            return;
+        }
+
+        // Prevent duplicate logging when the order passes through both
+        // 'processing' and 'completed' statuses.
+        if ( $order->get_meta( '_wpog_blocks_consent_logged' ) ) {
             return;
         }
 
@@ -245,7 +244,10 @@ class WPOG_WooCommerce_Blocks_Integration {
             $order->update_meta_data( '_wpog_terms_hash',        $document_hash );
             $order->update_meta_data( '_wpog_consent_date',      current_time( 'mysql' ) );
             $order->update_meta_data( '_wpog_consent_ip',        WPOG_Logger::anonymize_ip( WPOG_Logger::get_client_ip() ) );
-            $order->save();
         }
+
+        // Mark as logged — prevents duplicate entries if order status changes again.
+        $order->update_meta_data( '_wpog_blocks_consent_logged', '1' );
+        $order->save();
     }
 }
