@@ -200,11 +200,13 @@ class WPOG_WooCommerce_Blocks_Integration {
         $document_hash = WPOG_Terms_Consent::terms_hash();
         $checkout_url  = function_exists( 'wc_get_checkout_url' ) ? wc_get_checkout_url() : '';
 
-        // Read field values stored by WC under the _wc_additional_field_ prefix.
-        $terms_given   = (bool) $order->get_meta( '_wc_additional_field_wpog/terms_consent' );
-        $privacy_given = (bool) $order->get_meta( '_wc_additional_field_wpog/privacy_consent' );
-        $mkt_given     = (bool) $order->get_meta( '_wc_additional_field_wpog/marketing_consent' );
-        $age_given     = (bool) $order->get_meta( '_wc_additional_field_wpog/age_consent' );
+        // WooCommerce Additional Checkout Fields API stores 'order' location fields
+        // in order meta with the prefix '_wc_other/' (CheckoutFields::OTHER_FIELDS_PREFIX).
+        // The older '_wc_additional/' prefix (< 8.9) is also tried as a fallback.
+        $terms_given   = self::get_acf_meta( $order, 'wpog/terms_consent' );
+        $privacy_given = self::get_acf_meta( $order, 'wpog/privacy_consent' );
+        $mkt_given     = self::get_acf_meta( $order, 'wpog/marketing_consent' );
+        $age_given     = self::get_acf_meta( $order, 'wpog/age_consent' );
 
         // Terms acceptance — log regardless of value when the checkbox is shown.
         if ( ! empty( $s['require_terms_acceptance'] ) ) {
@@ -281,5 +283,34 @@ class WPOG_WooCommerce_Blocks_Integration {
         // Mark as logged — prevents duplicate entries across hooks and status transitions.
         $order->update_meta_data( '_wpog_blocks_consent_logged', '1' );
         $order->save();
+    }
+
+    /**
+     * Read a WooCommerce Additional Checkout Field value from order meta.
+     *
+     * WooCommerce stores 'order' location fields under '_wc_other/{field_id}'.
+     * Before WC 8.9 the prefix was '_wc_additional/{field_id}'.
+     * Some older WooCommerce versions used '_wc_additional_field_{field_id}'.
+     * We try all three so the code works across WC versions.
+     *
+     * @param WC_Order $order
+     * @param string   $field_id  e.g. 'wpog/terms_consent'
+     * @return bool
+     */
+    private static function get_acf_meta( WC_Order $order, string $field_id ): bool {
+        // Current (WC 8.9+): '_wc_other/'
+        $value = $order->get_meta( '_wc_other/' . $field_id, true );
+        if ( '' !== $value && null !== $value ) {
+            return (bool) $value;
+        }
+        // Legacy (WC 8.6–8.8): '_wc_additional/'
+        $value = $order->get_meta( '_wc_additional/' . $field_id, true );
+        if ( '' !== $value && null !== $value ) {
+            return (bool) $value;
+        }
+        // Older attempt with underscore separator.
+        $safe  = str_replace( '/', '_', $field_id );
+        $value = $order->get_meta( '_wc_additional_field_' . $safe, true );
+        return (bool) $value;
     }
 }
