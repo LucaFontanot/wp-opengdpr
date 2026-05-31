@@ -40,6 +40,7 @@ class WPOG_Loader {
         // Terms & Conditions module (e-commerce / WooCommerce).
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent-logger.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-woocommerce-integration.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-woocommerce-blocks-integration.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent.php';
 
         // Core wiring.

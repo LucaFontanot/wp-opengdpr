@@ -387,9 +387,15 @@ class WPOG_WooCommerce_Integration {
         }
         $checkout_page = get_post( $checkout_page_id );
         if ( $checkout_page && function_exists( 'has_block' ) && has_block( 'woocommerce/checkout', $checkout_page->post_content ) ) {
-            echo '<div class="notice notice-warning is-dismissible"><p><strong>WP OpenGDPR:</strong> '
-                . esc_html__( 'Your checkout uses the WooCommerce Block Checkout. The Terms & Conditions consent checkboxes are only compatible with the Classic Checkout (the [woocommerce_checkout] shortcode). Switch back to the Classic Checkout for full compatibility, or add the consent fields manually via Gutenberg blocks.', 'wp-opengdpr' )
-                . '</p></div>';
+            if ( function_exists( 'wc_register_additional_checkout_field' ) ) {
+                echo '<div class="notice notice-info is-dismissible"><p><strong>WP OpenGDPR:</strong> '
+                    . esc_html__( 'Your checkout uses the WooCommerce Block Checkout. WP OpenGDPR will register the Terms & Conditions consent fields via the WooCommerce Additional Checkout Fields API automatically.', 'wp-opengdpr' )
+                    . '</p></div>';
+            } else {
+                echo '<div class="notice notice-warning is-dismissible"><p><strong>WP OpenGDPR:</strong> '
+                    . esc_html__( 'Your checkout uses the WooCommerce Block Checkout. Block Checkout consent fields require WooCommerce 8.6 or later. Please update WooCommerce, or switch to the Classic Checkout shortcode [woocommerce_checkout].', 'wp-opengdpr' )
+                    . '</p></div>';
+            }
         }
     }
 

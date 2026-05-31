@@ -31,6 +31,7 @@ class WPOG_Terms_Consent {
         // WooCommerce integration — only when WooCommerce is active.
         if ( class_exists( 'WooCommerce' ) ) {
             WPOG_WooCommerce_Integration::init();
+            WPOG_WooCommerce_Blocks_Integration::init();
         }
     }
 
