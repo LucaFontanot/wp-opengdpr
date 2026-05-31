@@ -80,6 +80,15 @@ class WPOG_Consent {
     public static function ajax_save() {
         check_ajax_referer( 'wpog_consent', 'nonce' );
 
+        // Rate-limit by REMOTE_ADDR (unforgeable): max 30 writes per hour per IP.
+        $remote_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+        $rate_key   = 'wpog_rl_' . md5( $remote_ip );
+        $rate_count = (int) get_transient( $rate_key );
+        if ( $rate_count >= 30 ) {
+            wp_send_json_error( array( 'message' => 'Too many requests' ), 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, HOUR_IN_SECONDS );
+
         $payload = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
         $data = json_decode( $payload, true );
         if ( ! is_array( $data ) ) {

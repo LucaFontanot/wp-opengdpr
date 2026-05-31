@@ -303,7 +303,9 @@ class WPOG_Admin {
                         'category' => in_array( $row['category'] ?? 'marketing', array( 'necessary','functional','analytics','marketing' ), true ) ? $row['category'] : 'marketing',
                         'type'     => in_array( $row['type'] ?? 'inline', array( 'inline','src','iframe' ), true ) ? $row['type'] : 'inline',
                         'content'  => 'inline' === ( $row['type'] ?? 'inline' )
-                            ? wp_unslash( $row['content'] ?? '' )
+                            ? ( current_user_can( 'unfiltered_html' )
+                                ? wp_unslash( $row['content'] ?? '' )
+                                : wp_kses_post( $row['content'] ?? '' ) )
                             : esc_url_raw( $row['content'] ?? '' ),
                         'position' => in_array( $row['position'] ?? 'head', array( 'head','body-top','body-bottom' ), true ) ? $row['position'] : 'head',
                         'active'   => ! empty( $row['active'] ) ? 1 : 0,
@@ -585,6 +587,18 @@ class WPOG_Admin {
         exit;
     }
 
+    /**
+     * Neutralise CSV formula injection by prefixing dangerous leading characters with a single quote.
+     * Applies to any visitor-controlled string field written to a spreadsheet-bound CSV.
+     */
+    private static function sanitize_csv_field( $value ) {
+        $value = (string) $value;
+        if ( '' !== $value && in_array( $value[0], array( '=', '+', '-', '@', "\t", "\r" ), true ) ) {
+            return "'" . $value;
+        }
+        return $value;
+    }
+
     public static function export_logs() {
         if ( ! current_user_can( self::CAP ) ) {
             wp_die( 'Forbidden' );
@@ -606,7 +620,19 @@ class WPOG_Admin {
         $fh = fopen( 'php://output', 'w' );
         fputcsv( $fh, array( 'id', 'consent_id', 'date', 'ip', 'action', 'necessary', 'functional', 'analytics', 'marketing', 'policy_version', 'user_agent' ) );
         foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array( $r->id, $r->consent_id, $r->consent_date, $r->ip_address, $r->action, $r->necessary, $r->functional, $r->analytics, $r->marketing, $r->policy_version, $r->user_agent ) );
+            fputcsv( $fh, array(
+                $r->id,
+                self::sanitize_csv_field( $r->consent_id ),
+                $r->consent_date,
+                $r->ip_address,
+                $r->action,
+                $r->necessary,
+                $r->functional,
+                $r->analytics,
+                $r->marketing,
+                $r->policy_version,
+                self::sanitize_csv_field( $r->user_agent ),
+            ) );
         }
         fclose( $fh );
         exit;
@@ -634,7 +660,21 @@ class WPOG_Admin {
         $fh = fopen( 'php://output', 'w' );
         fputcsv( $fh, array( 'id', 'consent_id', 'date', 'form_id', 'form_type', 'form_title', 'page_url', 'consent_given', 'marketing_consent', 'consent_text', 'privacy_version', 'ip', 'user_agent' ) );
         foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array( $r->id, $r->consent_id, $r->consent_date, $r->form_id, $r->form_type, $r->form_title, $r->page_url, $r->consent_given, $r->marketing_consent, $r->consent_text, $r->privacy_version, $r->ip_address, $r->user_agent ) );
+            fputcsv( $fh, array(
+                $r->id,
+                self::sanitize_csv_field( $r->consent_id ),
+                $r->consent_date,
+                $r->form_id,
+                $r->form_type,
+                self::sanitize_csv_field( $r->form_title ),
+                self::sanitize_csv_field( $r->page_url ),
+                $r->consent_given,
+                $r->marketing_consent,
+                self::sanitize_csv_field( $r->consent_text ),
+                $r->privacy_version,
+                $r->ip_address,
+                self::sanitize_csv_field( $r->user_agent ),
+            ) );
         }
         fclose( $fh );
         exit;
@@ -663,7 +703,22 @@ class WPOG_Admin {
         $fh = fopen( 'php://output', 'w' );
         fputcsv( $fh, array( 'id', 'consent_id', 'date', 'order_id', 'user_id', 'document_type', 'document_version', 'document_hash', 'consent_given', 'context', 'integration', 'page_url', 'ip', 'user_agent' ) );
         foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array( $r->id, $r->consent_id, $r->consent_date, $r->order_id, $r->user_id, $r->document_type, $r->document_version, $r->document_hash, $r->consent_given, $r->context, $r->integration, $r->page_url, $r->ip_address, $r->user_agent ) );
+            fputcsv( $fh, array(
+                $r->id,
+                self::sanitize_csv_field( $r->consent_id ),
+                $r->consent_date,
+                $r->order_id,
+                $r->user_id,
+                $r->document_type,
+                $r->document_version,
+                $r->document_hash,
+                $r->consent_given,
+                self::sanitize_csv_field( $r->context ),
+                $r->integration,
+                self::sanitize_csv_field( $r->page_url ),
+                $r->ip_address,
+                self::sanitize_csv_field( $r->user_agent ),
+            ) );
         }
         fclose( $fh );
         exit;

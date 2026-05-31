@@ -63,19 +63,28 @@ class WPOG_Logger {
     }
 
     public static function get_client_ip() {
-        $candidates = array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR' );
-        foreach ( $candidates as $key ) {
-            if ( ! empty( $_SERVER[ $key ] ) ) {
-                $ip = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
-                if ( strpos( $ip, ',' ) !== false ) {
-                    $ip = trim( explode( ',', $ip )[0] );
-                }
-                if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-                    return $ip;
+        // Default to REMOTE_ADDR (the only unforgeable value).
+        // Proxy headers are spoofable by any visitor and must not be trusted
+        // unless the site explicitly opts in via a filter (trusted-proxy setups only).
+        $ip = isset( $_SERVER['REMOTE_ADDR'] )
+            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
+            : '';
+
+        if ( apply_filters( 'wpog_trust_proxy_headers', false ) ) {
+            foreach ( array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR' ) as $key ) {
+                if ( ! empty( $_SERVER[ $key ] ) ) {
+                    $candidate = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
+                    if ( strpos( $candidate, ',' ) !== false ) {
+                        $candidate = trim( explode( ',', $candidate )[0] );
+                    }
+                    if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+                        return $candidate;
+                    }
                 }
             }
         }
-        return '';
+
+        return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
     }
 
     public static function log( $data ) {
