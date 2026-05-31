@@ -165,6 +165,7 @@ class WPOG_Settings {
                 'wc_replace_native_terms'    => 0,
                 'wc_show_terms_inline'       => 0,
                 'wc_order_column'            => 1,
+                'wc_registration_consent'    => 0,
             ),
         );
         return isset( $defaults[ $group ] ) ? $defaults[ $group ] : array();

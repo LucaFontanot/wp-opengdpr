@@ -4,7 +4,8 @@
  *
  * Registers the same four consent checkboxes (Terms, Privacy, Marketing, Age)
  * used by the classic checkout into the WooCommerce Block Checkout via the
- * Additional Checkout Fields API (WC 8.6+, wc_register_additional_checkout_field).
+ * Additional Checkout Fields API (WC 8.7+,
+ * woocommerce_register_additional_checkout_field).
  *
  * The classic checkout integration (WPOG_WooCommerce_Integration) is completely
  * separate and is not modified by this class.
@@ -33,49 +34,69 @@ class WPOG_WooCommerce_Blocks_Integration {
 
     /**
      * Boot the integration. Called from WPOG_Terms_Consent::init() only when
-     * WooCommerce is active. Guards against missing WC 8.6+ API and disabled
-     * settings before registering any hooks.
+     * WooCommerce is active.
      */
     public static function init() {
-        if ( ! function_exists( 'wc_register_additional_checkout_field' ) ) {
-            return;
-        }
-
         $s = WPOG_Settings::get( 'terms_consent' );
         if ( empty( $s['enabled'] ) || empty( $s['woocommerce_enabled'] ) ) {
             return;
         }
 
         add_action( 'woocommerce_init', array( __CLASS__, 'register_fields' ) );
-        add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( __CLASS__, 'save_consent_data' ), 10, 2 );
+        add_action( 'woocommerce_store_api_checkout_order_processed', array( __CLASS__, 'save_consent_data' ), 10, 1 );
+
+        // Suppress native WC Terms block when our fields handle consent.
+        add_filter( 'render_block', array( __CLASS__, 'suppress_native_terms_block' ), 10, 2 );
+    }
+
+    /* ---------- native Terms block suppression ---------- */
+
+    public static function suppress_native_terms_block( $block_content, $block ) {
+        if ( 'woocommerce/checkout-terms-block' !== $block['blockName'] ) {
+            return $block_content;
+        }
+        if ( ! function_exists( 'woocommerce_register_additional_checkout_field' ) ) {
+            return $block_content;
+        }
+        $s = WPOG_Settings::get( 'terms_consent' );
+        if (
+            ! empty( $s['require_terms_acceptance'] ) ||
+            ! empty( $s['require_privacy_acceptance'] ) ||
+            ! empty( $s['show_marketing_consent'] ) ||
+            ! empty( $s['require_age_verification'] )
+        ) {
+            return '';
+        }
+        return $block_content;
     }
 
     /* ---------- field registration ---------- */
 
     /**
      * Register each consent field with the WC Additional Checkout Fields API.
-     * Fields are registered conditionally based on the current settings.
-     * Labels are stripped of HTML tags because the block checkout renders
-     * labels as plain text (no raw HTML in the block editor field labels).
+     * WC renders labels as plain text, so HTML links are inlined as "text (url)".
      */
     public static function register_fields() {
+        if ( ! function_exists( 'woocommerce_register_additional_checkout_field' ) ) {
+            return;
+        }
+
         $s = WPOG_Settings::get( 'terms_consent' );
 
         if ( ! empty( $s['require_terms_acceptance'] ) ) {
-            wc_register_additional_checkout_field( array(
-                'id'                => 'wpog/terms_consent',
-                'label'             => wp_strip_all_tags( WPOG_Terms_Consent::terms_label() ),
-                'location'          => 'order',
-                'type'              => 'checkbox',
-                'required'          => true,
-                'sanitize_callback' => 'rest_sanitize_boolean',
+            woocommerce_register_additional_checkout_field( array(
+                'id'       => 'wpog/terms_consent',
+                'label'    => self::plain_label( WPOG_Terms_Consent::terms_label() ),
+                'location' => 'order',
+                'type'     => 'checkbox',
+                'required' => true,
             ) );
         }
 
         if ( ! empty( $s['require_privacy_acceptance'] ) ) {
-            wc_register_additional_checkout_field( array(
+            woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/privacy_consent',
-                'label'    => wp_strip_all_tags( WPOG_Terms_Consent::privacy_label() ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::privacy_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -83,9 +104,9 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
 
         if ( ! empty( $s['show_marketing_consent'] ) ) {
-            wc_register_additional_checkout_field( array(
+            woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/marketing_consent',
-                'label'    => wp_strip_all_tags( WPOG_Terms_Consent::marketing_label() ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::marketing_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => false,
@@ -93,9 +114,9 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
 
         if ( ! empty( $s['require_age_verification'] ) ) {
-            wc_register_additional_checkout_field( array(
+            woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/age_consent',
-                'label'    => wp_strip_all_tags( WPOG_Terms_Consent::age_label() ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::age_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -103,17 +124,36 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
     }
 
+    /**
+     * Convert an HTML label to plain text suitable for the WC block checkout.
+     * <a href="URL">text</a> → "text (URL)"; remaining tags are stripped.
+     * Empty hrefs are omitted: <a href="">text</a> → "text".
+     */
+    private static function plain_label( $html ) {
+        $plain = preg_replace_callback(
+            '/<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/is',
+            static function ( $m ) {
+                $url  = trim( $m[1] );
+                $text = wp_strip_all_tags( $m[2] );
+                return $url ? "{$text} ({$url})" : $text;
+            },
+            $html
+        );
+        return wp_strip_all_tags( $plain ?? $html );
+    }
+
     /* ---------- logging ---------- */
 
     /**
      * Persist the consent proof to the log table and optionally to order meta.
-     * Runs on woocommerce_store_api_checkout_update_order_from_request, i.e.
-     * only after WooCommerce's own field validation has passed.
+     * Runs on woocommerce_store_api_checkout_order_processed, which fires once
+     * after the order is fully created and validated, right before payment —
+     * the Block Checkout equivalent of woocommerce_checkout_order_created.
+     * Field values are already written to order meta by WC at this point.
      *
-     * @param WC_Order        $order   The order being created / updated.
-     * @param WP_REST_Request $request The Store API request.
+     * @param WC_Order $order The order being processed.
      */
-    public static function save_consent_data( $order, $request ) {
+    public static function save_consent_data( $order ) {
         if ( ! $order instanceof WC_Order ) {
             return;
         }

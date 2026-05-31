@@ -34,6 +34,9 @@ $position  = in_array( $s['wc_checkout_position'] ?? 'before_submit', array( 'be
 
     <tr><th><?php esc_html_e( '“GDPR consents” order-list column', 'wp-opengdpr' ); ?></th>
         <td><label><input type="checkbox" name="wpog_tc[wc_order_column]" value="1" <?php checked( $s['wc_order_column'] ); ?> /> <?php esc_html_e( 'Add a column with ✓/✗ icons to the orders list (HPOS compatible)', 'wp-opengdpr' ); ?></label></td></tr>
+    <tr><th><?php esc_html_e( 'Registration consent', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog_tc[wc_registration_consent]" value="1" <?php checked( $s['wc_registration_consent'] ); ?> /> <?php esc_html_e( 'Show Privacy and Marketing consent checkboxes on the My Account registration form and log acceptance', 'wp-opengdpr' ); ?></label>
+        <p class="description"><?php esc_html_e( 'Uses the same Privacy and Marketing settings configured in the General tab. Terms acceptance is not shown (it is checkout-specific).', 'wp-opengdpr' ); ?></p></td></tr>
 </table>
 <?php WPOG_Admin::form_close(); ?>
 

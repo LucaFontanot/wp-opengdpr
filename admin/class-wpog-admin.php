@@ -556,6 +556,7 @@ class WPOG_Admin {
                     'wc_show_terms_inline'    => ! empty( $in['wc_show_terms_inline'] ) ? 1 : 0,
                     'log_save_to_order_meta'  => ! empty( $in['log_save_to_order_meta'] ) ? 1 : 0,
                     'wc_order_column'         => ! empty( $in['wc_order_column'] ) ? 1 : 0,
+                    'wc_registration_consent' => ! empty( $in['wc_registration_consent'] ) ? 1 : 0,
                 ) );
                 break;
 
