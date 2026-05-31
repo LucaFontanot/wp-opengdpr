@@ -1182,7 +1182,8 @@
             P.push('');
         }
         P.push('=== OUTPUT REQUIREMENTS ===');
-        P.push('- Produce each document as a separate, clearly delimited section with a heading.');
+        P.push('- Produce each document as a SEPARATE FILE. Preferred format order: (1) .docx, (2) .md if .docx is not available in your environment, (3) .pdf if neither .docx nor .md is available, (4) plain text as a last resort. Do not merge documents into a single file.');
+        P.push('- Name each file clearly after the document type (e.g. privacy-policy.docx, cookie-policy.docx, terms-and-conditions.docx).');
         P.push('- Do not invent facts: where a value is marked "(to be provided)", insert a clearly bracketed placeholder for the user to complete.');
         P.push('- Never reference the abolished ODR platform. Never reference pre-2021 SCCs. Never reference fax numbers.');
         P.push('- Reproduce the AI Legal Notice verbatim at the top of every document.');

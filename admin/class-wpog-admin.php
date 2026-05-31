@@ -66,6 +66,7 @@ class WPOG_Admin {
             'wpog'              => __( 'General Settings', 'wp-opengdpr' ),
             'wpog-translations' => __( 'Translations', 'wp-opengdpr' ),
             'wpog-settings-io'  => __( 'Export / Import', 'wp-opengdpr' ),
+            'wpog-legal'        => __( '✨ Legal Generator', 'wp-opengdpr' ),
         );
         foreach ( $gdpr_pages as $slug => $title ) {
             add_submenu_page( self::SLUG, $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
@@ -138,16 +139,6 @@ class WPOG_Admin {
             add_submenu_page( 'wpog-terms', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
         }
 
-        // ── 5. Legal Document Prompt Generator (standalone, separated) ───────
-        add_menu_page(
-            __( 'Legal Doc Generator', 'wp-opengdpr' ),
-            __( '✨ Legal Generator', 'wp-opengdpr' ),
-            self::CAP,
-            'wpog-legal',
-            array( __CLASS__, 'route' ),
-            'dashicons-media-document',
-            85
-        );
     }
 
     public static function route() {

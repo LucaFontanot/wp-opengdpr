@@ -184,11 +184,14 @@
 .wpog-prompt-output__box {
     background: #1d2327; color: #e6e6e6; border-radius: 6px; padding: 0;
     margin: 14px 0; max-height: 460px; overflow: auto; border: 1px solid #0b0c0e;
+    width: 100%;
 }
 .wpog-prompt-output__text {
+    display: block; width: 100%;
     margin: 0; padding: 18px 20px; white-space: pre-wrap; word-break: break-word;
     font-family: Menlo, Consolas, Monaco, monospace; font-size: 12.5px; line-height: 1.55;
     color: #e6e6e6; background: transparent;
+    border: none; outline: none; resize: vertical;
 }
 .wpog-prompt-output__actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
 .wpog-copy-btn.copied { background: #1a6b1a !important; border-color: #1a6b1a !important; color: #fff !important; }

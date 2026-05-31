@@ -141,7 +141,7 @@ wp-opengdpr/
 | `WPOG_Legal_Generator` | Legal Doc Generator data layer. Manages `{prefix}wpog_legal_prompts` (`install_table()`, `ensure_table()`, `save()`, `query()` → `{rows,total}`, `get()` decodes `form_data` JSON, `delete()`). `prefill_data()` bridges existing modules (cookie/privacy/terms options + WooCommerce/CF7 presence) into the wizard. `supervisory_authorities()` returns a country→authority map (~31 EU/EEA + UK/CH). `DOCS` const = `['privacy','cookie','terms']`. |
 | `WPOG_Legal_REST` | Registers REST routes under `wpog/v1/legal-generator` (`NAMESPACE_V1='wpog/v1'`, `BASE='legal-generator'`). Routes: `GET /prefill`, `GET|POST /prompts`, `GET|DELETE /prompts/{id}`. All `manage_options` + `X-WP-Nonce`. |
 | `WPOG_Public` | Enqueues frontend CSS/JS, localises `WPOG_DATA` (consent runtime config), `WPOG_TRACK` (admin-only, contains `endpoint`, `nonce`, `page_url`). Renders banner+popup+FAB. |
-| `WPOG_Admin` | Registers five top-level WP admin menus (**GDPR Settings** slug `wpog`, **Cookie Consent** slug `wpog-cookie`, **Privacy Consent** slug `wpog-privacy`, **Terms & Conditions** slug `wpog-terms`, **Legal Doc Generator** slug `wpog-legal`); `route()` maps page slugs to view files; on the `wpog-legal` page it enqueues `legal-generator.{css,js}` (dep `wp-i18n`) and localises **`wpogLegalGen`** = `{ restUrl, nonce (wp_rest), prefill, authorities }`; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_texts`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`. |
+| `WPOG_Admin` | Registers four top-level WP admin menus (**GDPR Settings** slug `wpog` — submenus: General Settings, Translations, Export/Import, ✨ Legal Generator; **Cookie Consent** slug `wpog-cookie`; **Privacy Consent** slug `wpog-privacy`; **Terms & Conditions** slug `wpog-terms`); `route()` maps page slugs to view files; on the `wpog-legal` page it enqueues `legal-generator.{css,js}` (dep `wp-i18n`) and localises **`wpogLegalGen`** = `{ restUrl, nonce (wp_rest), prefill, authorities }`; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_texts`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`. |
 
 ---
 
@@ -402,7 +402,7 @@ Checkboxes are never pre-ticked. IP anonymisation is mandatory and shared via
 Fourth independent module: an admin-only wizard that assembles an AI prompt for
 drafting GDPR/ePrivacy/e-commerce legal documents. Wired in `WPOG_Core` via
 `WPOG_Legal_Generator::init()` (table install + REST registration). The admin
-menu is a fifth top-level menu (slug `wpog-legal`).
+menu entry is a submenu under **GDPR Settings** (slug `wpog-legal`).
 
 Privacy/architecture notes:
 - **Nothing is sent to any AI service.** The wizard runs 100% client-side
