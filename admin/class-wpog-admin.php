@@ -33,6 +33,21 @@ class WPOG_Admin {
         wp_enqueue_media();
         wp_enqueue_style( 'wpog-admin', WPOG_PLUGIN_URL . 'admin/assets/admin.css', array(), WPOG_VERSION );
         wp_enqueue_script( 'wpog-admin', WPOG_PLUGIN_URL . 'admin/assets/admin.js', array( 'jquery', 'wp-color-picker' ), WPOG_VERSION, true );
+
+        // Legal Document Prompt Generator wizard — loaded ONLY on its own page
+        // to keep the bundle off every other admin screen.
+        $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+        if ( 'wpog-legal' === $page ) {
+            wp_enqueue_style( 'wpog-legal-generator', WPOG_PLUGIN_URL . 'admin/assets/legal-generator.css', array( 'wpog-admin' ), WPOG_VERSION );
+            wp_enqueue_script( 'wpog-legal-generator', WPOG_PLUGIN_URL . 'admin/assets/legal-generator.js', array( 'wp-i18n' ), WPOG_VERSION, true );
+            wp_set_script_translations( 'wpog-legal-generator', 'wp-opengdpr' );
+            wp_localize_script( 'wpog-legal-generator', 'wpogLegalGen', array(
+                'restUrl'      => esc_url_raw( rest_url( 'wpog/v1/legal-generator' ) ),
+                'nonce'        => wp_create_nonce( 'wp_rest' ),
+                'prefill'      => WPOG_Legal_Generator::prefill_data(),
+                'authorities'  => WPOG_Legal_Generator::supervisory_authorities(),
+            ) );
+        }
     }
 
     public static function menu() {
@@ -122,6 +137,17 @@ class WPOG_Admin {
         foreach ( $terms_pages as $slug => $title ) {
             add_submenu_page( 'wpog-terms', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
         }
+
+        // ── 5. Legal Document Prompt Generator (standalone, separated) ───────
+        add_menu_page(
+            __( 'Legal Doc Generator', 'wp-opengdpr' ),
+            __( '✨ Legal Generator', 'wp-opengdpr' ),
+            self::CAP,
+            'wpog-legal',
+            array( __CLASS__, 'route' ),
+            'dashicons-media-document',
+            85
+        );
     }
 
     public static function route() {
@@ -151,6 +177,8 @@ class WPOG_Admin {
             'wpog-terms-documents'   => 'page-terms-documents.php',
             'wpog-terms-woocommerce' => 'page-terms-woocommerce.php',
             'wpog-terms-logs'        => 'page-terms-logs.php',
+            // Legal Document Prompt Generator
+            'wpog-legal'             => 'page-legal-generator.php',
         );
         $view = $map[ $screen ] ?? 'page-general.php';
         echo '<div class="wrap wpog-wrap">';

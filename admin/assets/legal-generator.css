@@ -1,0 +1,256 @@
+/* =========================================================================
+ * Legal Document Prompt Generator — wizard UI
+ * Vanilla-JS wizard styling, aligned with the WP admin / wpog-wrap look.
+ * ========================================================================= */
+
+.wpog-legal { max-width: 980px; }
+.wpog-legal *, .wpog-legal *::before, .wpog-legal *::after { box-sizing: border-box; }
+.wpog-legal-loading { color: #646970; font-style: italic; }
+
+/* ---- Intro / header ---------------------------------------------------- */
+.wpog-legal__intro { margin: 4px 0 18px; color: #50575e; }
+.wpog-legal__intro h1 { font-size: 23px; margin: 0 0 6px; }
+.wpog-legal__intro .wpog-legal__badge {
+    display: inline-block; background: #f0f6fc; color: #0a4b78;
+    border: 1px solid #c5d9ed; border-radius: 3px; padding: 1px 7px;
+    font-size: 11px; font-weight: 600; margin-left: 6px; vertical-align: middle;
+}
+
+/* ---- Stepper ----------------------------------------------------------- */
+.wpog-stepper {
+    display: flex; flex-wrap: wrap; gap: 4px; list-style: none;
+    margin: 0 0 20px; padding: 0; counter-reset: step;
+}
+.wpog-stepper__item {
+    flex: 1 1 0; min-width: 92px; text-align: center; position: relative;
+    padding: 10px 6px 8px; border-bottom: 3px solid #dcdcde; cursor: default;
+}
+.wpog-stepper__item .wpog-stepper__num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: #dcdcde;
+    color: #50575e; font-weight: 600; font-size: 13px; margin-bottom: 4px;
+    transition: background .2s, color .2s;
+}
+.wpog-stepper__item .wpog-stepper__label {
+    display: block; font-size: 11px; line-height: 1.3; color: #646970;
+}
+.wpog-stepper__item.is-current { border-bottom-color: #2271b1; }
+.wpog-stepper__item.is-current .wpog-stepper__num { background: #2271b1; color: #fff; }
+.wpog-stepper__item.is-current .wpog-stepper__label { color: #1d2327; font-weight: 600; }
+.wpog-stepper__item.is-done { border-bottom-color: #2271b1; cursor: pointer; }
+.wpog-stepper__item.is-done .wpog-stepper__num { background: #2271b1; color: #fff; }
+.wpog-stepper__item.is-done .wpog-stepper__num::before { content: "\2713"; }
+.wpog-stepper__item.is-done .wpog-stepper__num span { display: none; }
+
+/* ---- Card -------------------------------------------------------------- */
+.wpog-card {
+    background: #fff; border: 1px solid #c3c4c7; border-radius: 6px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04); padding: 24px 26px; margin-bottom: 18px;
+}
+.wpog-card__title { font-size: 18px; margin: 0 0 2px; }
+.wpog-card__sub { margin: 0 0 18px; color: #646970; font-size: 13px; }
+.wpog-card section + section { margin-top: 22px; padding-top: 18px; border-top: 1px solid #f0f0f1; }
+.wpog-card section > h3 { font-size: 14px; margin: 0 0 10px; color: #1d2327; }
+
+/* ---- Fields ------------------------------------------------------------ */
+.wpog-field { margin-bottom: 16px; }
+.wpog-field > label.wpog-field__label {
+    display: block; font-weight: 600; margin-bottom: 5px; color: #1d2327;
+}
+.wpog-field__label .req { color: #b32d2e; margin-left: 2px; }
+.wpog-field input[type="text"],
+.wpog-field input[type="email"],
+.wpog-field input[type="url"],
+.wpog-field input[type="date"],
+.wpog-field input[type="number"],
+.wpog-field select,
+.wpog-field textarea { width: 100%; max-width: 520px; }
+.wpog-field textarea { min-height: 78px; }
+.wpog-field__hint { display: block; color: #646970; font-size: 12px; margin-top: 4px; }
+.wpog-field.has-error input,
+.wpog-field.has-error select,
+.wpog-field.has-error textarea { border-color: #d63638; box-shadow: 0 0 0 1px #d63638; }
+.wpog-field__error { color: #b32d2e; font-size: 12px; margin-top: 4px; display: none; }
+.wpog-field.has-error .wpog-field__error { display: block; }
+
+/* prefill + legal markers */
+.wpog-tag-prefill, .wpog-tag-legal {
+    display: inline-block; font-size: 11px; cursor: help; margin-left: 6px;
+    vertical-align: middle;
+}
+.wpog-tag-prefill { color: #2271b1; }
+.wpog-tag-legal { color: #8a6d00; }
+
+/* ---- Toggle switch ----------------------------------------------------- */
+.wpog-toggle { display: flex; align-items: center; gap: 10px; }
+.wpog-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.wpog-toggle .wpog-switch {
+    position: relative; width: 40px; height: 22px; background: #c3c4c7;
+    border-radius: 22px; transition: background .2s; flex: 0 0 auto;
+}
+.wpog-toggle .wpog-switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%; transition: transform .2s;
+}
+.wpog-toggle input:checked + .wpog-switch { background: #2271b1; }
+.wpog-toggle input:checked + .wpog-switch::after { transform: translateX(18px); }
+.wpog-toggle input:focus + .wpog-switch { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2271b1; }
+.wpog-toggle .wpog-toggle__text { font-weight: 600; }
+
+/* ---- Chips / multiselect ---------------------------------------------- */
+.wpog-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.wpog-chip {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 5px 11px; border: 1px solid #c3c4c7; border-radius: 16px;
+    background: #fff; font-size: 12px; user-select: none; transition: all .15s;
+}
+.wpog-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.wpog-chip:hover { border-color: #2271b1; }
+.wpog-chip.is-checked { background: #2271b1; border-color: #2271b1; color: #fff; }
+
+/* radios as buttons */
+.wpog-radios { display: flex; flex-wrap: wrap; gap: 8px; }
+.wpog-radios label {
+    padding: 6px 12px; border: 1px solid #c3c4c7; border-radius: 4px; cursor: pointer;
+    font-size: 13px; background: #fff;
+}
+.wpog-radios label.is-checked { background: #2271b1; border-color: #2271b1; color: #fff; }
+.wpog-radios input { position: absolute; opacity: 0; pointer-events: none; }
+
+/* ---- Conditional reveal (smooth) -------------------------------------- */
+.wpog-cond { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
+.wpog-cond > .wpog-cond__inner { overflow: hidden; }
+.wpog-cond.is-open { grid-template-rows: 1fr; }
+.wpog-cond.is-open > .wpog-cond__inner { overflow: visible; }
+.wpog-cond__inner { padding-left: 14px; border-left: 2px solid #e0e6eb; margin-top: 8px; }
+
+/* ---- Dynamic table (processing activities) ---------------------------- */
+.wpog-activity {
+    border: 1px solid #dcdcde; border-radius: 6px; padding: 16px 18px;
+    margin-bottom: 14px; background: #fafafb; position: relative;
+}
+.wpog-activity__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.wpog-activity__head strong { font-size: 13px; color: #1d2327; }
+.wpog-activity .wpog-field input,
+.wpog-activity .wpog-field select,
+.wpog-activity .wpog-field textarea { max-width: 100%; }
+
+/* ---- Read-only summary table ------------------------------------------ */
+.wpog-summary-table { border-collapse: collapse; width: 100%; max-width: 720px; margin-top: 6px; }
+.wpog-summary-table th, .wpog-summary-table td {
+    border: 1px solid #dcdcde; padding: 7px 10px; text-align: left; font-size: 12px; vertical-align: top;
+}
+.wpog-summary-table th { background: #f6f7f7; }
+.wpog-yes { color: #1a6b1a; font-weight: 600; }
+.wpog-no { color: #646970; }
+
+/* ---- Notices ----------------------------------------------------------- */
+.wpog-inline-notice {
+    border-left: 4px solid #72aee6; background: #f0f6fc; padding: 10px 14px;
+    margin: 12px 0; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+.wpog-inline-notice.is-warning { border-left-color: #dba617; background: #fcf9e8; }
+.wpog-inline-notice.is-error { border-left-color: #d63638; background: #fcf0f1; }
+
+/* ---- Footer nav -------------------------------------------------------- */
+.wpog-wizard-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.wpog-wizard-nav .wpog-step-count { color: #646970; font-size: 12px; }
+
+/* ---- Review accordion -------------------------------------------------- */
+.wpog-review__panel { border: 1px solid #dcdcde; border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+.wpog-review__bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 16px; background: #f6f7f7; cursor: pointer; font-weight: 600;
+}
+.wpog-review__bar .wpog-badge-warn {
+    background: #fcf0d4; color: #8a6d00; border-radius: 3px; padding: 1px 8px;
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+}
+.wpog-review__body { padding: 14px 16px; font-size: 13px; }
+.wpog-review__body dl { margin: 0; display: grid; grid-template-columns: 200px 1fr; gap: 4px 14px; }
+.wpog-review__body dt { color: #646970; }
+.wpog-review__body dd { margin: 0; color: #1d2327; }
+
+/* ---- Disclaimer box ---------------------------------------------------- */
+.wpog-disclaimer {
+    border: 2px solid #dba617; background: #fcf9e8; border-radius: 6px;
+    padding: 16px 18px; margin: 18px 0;
+}
+.wpog-disclaimer h3 { margin: 0 0 8px; color: #8a6d00; font-size: 14px; }
+.wpog-disclaimer ul { margin: 6px 0 0 18px; }
+.wpog-disclaimer p, .wpog-disclaimer li { font-size: 13px; color: #5c4d00; }
+
+/* ---- Prompt output ----------------------------------------------------- */
+.wpog-prompt-output__box {
+    background: #1d2327; color: #e6e6e6; border-radius: 6px; padding: 0;
+    margin: 14px 0; max-height: 460px; overflow: auto; border: 1px solid #0b0c0e;
+}
+.wpog-prompt-output__text {
+    margin: 0; padding: 18px 20px; white-space: pre-wrap; word-break: break-word;
+    font-family: Menlo, Consolas, Monaco, monospace; font-size: 12.5px; line-height: 1.55;
+    color: #e6e6e6; background: transparent;
+}
+.wpog-prompt-output__actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.wpog-copy-btn.copied { background: #1a6b1a !important; border-color: #1a6b1a !important; color: #fff !important; }
+
+/* ---- Saved prompts ----------------------------------------------------- */
+.wpog-saved-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.wpog-saved-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    border: 1px solid #dcdcde; border-radius: 5px; padding: 10px 14px; margin-bottom: 8px; background: #fff;
+}
+.wpog-saved-item__meta { color: #646970; font-size: 12px; }
+.wpog-saved-item__name { font-weight: 600; color: #1d2327; }
+.wpog-saved-item__docs { display: inline-flex; gap: 4px; margin-left: 8px; }
+.wpog-doc-pill { background: #f0f6fc; color: #0a4b78; border-radius: 10px; padding: 0 8px; font-size: 11px; }
+.wpog-saved-actions { display: flex; gap: 6px; }
+
+/* ---- Draft restore ----------------------------------------------------- */
+.wpog-draft-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 5px;
+    padding: 10px 14px; margin-bottom: 16px;
+}
+
+/* ---- Tabs (wizard vs saved) ------------------------------------------- */
+.wpog-legal__tabs { margin-bottom: 14px; border-bottom: 1px solid #dcdcde; }
+.wpog-legal__tab {
+    background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer;
+    padding: 8px 14px; font-size: 14px; color: #646970; font-weight: 600;
+}
+.wpog-legal__tab.is-active { color: #2271b1; border-bottom-color: #2271b1; }
+
+@media (max-width: 782px) {
+    .wpog-review__body dl { grid-template-columns: 1fr; }
+    .wpog-stepper__item .wpog-stepper__label { display: none; }
+}
+
+/* ---- Supplement: class-driven toggle, misc helpers -------------------- */
+.wpog-toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.wpog-toggle.is-on .wpog-switch { background: #2271b1; }
+.wpog-toggle.is-on .wpog-switch::after { transform: translateX(18px); }
+
+.wpog-input {
+    width: 100%; max-width: 520px;
+}
+.wpog-prompt-output__actions .wpog-input { max-width: 320px; }
+
+.wpog-readonly {
+    background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 4px;
+    padding: 7px 10px; font-size: 13px; color: #3c434a; max-width: 520px;
+}
+.wpog-subhead {
+    margin: 22px 0 8px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: .04em; color: #2271b1; border-bottom: 1px solid #e0e6eb; padding-bottom: 4px;
+}
+.wpog-badge-ok { color: #1a6b1a; font-weight: 700; margin-left: 8px; }
+.wpog-review__panel.has-error { border-color: #dba617; }
+.wpog-save-msg { font-size: 12px; color: #646970; align-self: center; }
+.wpog-empty { color: #646970; font-style: italic; }
+.wpog-saved-item__date { display: block; margin-top: 2px; }
+.wpog-activities { margin-bottom: 12px; }
+.wpog-row-remove { color: #b32d2e; }
+.wpog-generate { margin: 18px 0; }
+.wpog-disclaimer--mini { border-width: 1px; padding: 10px 14px; margin: 0 0 12px; }
+.wpog-disclaimer--mini p { margin: 0; }
+.wpog-legal-loading { color: #646970; }

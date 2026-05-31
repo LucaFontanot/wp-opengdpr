@@ -29,6 +29,9 @@ class WPOG_Core {
         // REST endpoints (tracking, future).
         WPOG_REST::init();
 
+        // Legal Document Prompt Generator REST endpoints.
+        WPOG_Legal_REST::init();
+
         // Form privacy consent — registered on every request: rendering happens
         // on the front-end while validation/logging happen during the CF7 AJAX
         // submission (which runs in an admin context).
@@ -66,6 +69,7 @@ class WPOG_Core {
         WPOG_Tracking::install_table();
         WPOG_Form_Consent_Logger::install_table();
         WPOG_Terms_Consent_Logger::install_table();
+        WPOG_Legal_Generator::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
         if ( ! wp_next_scheduled( 'wpog_daily_event' ) ) {
             wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wpog_daily_event' );
@@ -87,6 +91,7 @@ class WPOG_Core {
         WPOG_Tracking::install_table();
         WPOG_Form_Consent_Logger::install_table();
         WPOG_Terms_Consent_Logger::install_table();
+        WPOG_Legal_Generator::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
     }
 

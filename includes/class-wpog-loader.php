@@ -27,6 +27,10 @@ class WPOG_Loader {
         require_once WPOG_PLUGIN_DIR . 'includes/tracking/class-wpog-tracking.php';
         require_once WPOG_PLUGIN_DIR . 'includes/rest/class-wpog-rest.php';
 
+        // Legal Document Prompt Generator (admin wizard + REST).
+        require_once WPOG_PLUGIN_DIR . 'includes/legal-generator/class-wpog-legal-generator.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/rest/class-wpog-legal-rest.php';
+
         // Form privacy consent module (independent from cookie consent).
         require_once WPOG_PLUGIN_DIR . 'includes/form-consent/class-wpog-form-consent-logger.php';
         require_once WPOG_PLUGIN_DIR . 'includes/form-consent/class-wpog-cf7-integration.php';

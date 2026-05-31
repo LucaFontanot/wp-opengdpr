@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> Living technical map of the **WP OpenGDPR** plugin (v1.0.3). Keep this in sync
+> Living technical map of the **WP OpenGDPR** plugin (v1.4.0). Keep this in sync
 > when adding/removing files, classes, REST routes, options or DB tables.
 
 ---
@@ -42,7 +42,7 @@ wp-opengdpr.php  ── bootstraps WPOG_Loader → loads everything → instanti
 
 ```
 wp-opengdpr/
-├── wp-opengdpr.php                    Plugin header + bootstrap (v1.0.3); declares WooCommerce HPOS compatibility
+├── wp-opengdpr.php                    Plugin header + bootstrap (v1.4.0); declares WooCommerce HPOS compatibility
 ├── uninstall.php                      Drops options + tables
 ├── includes/
 │   ├── class-wpog-loader.php          Single source of truth for require_once chain
@@ -64,13 +64,18 @@ wp-opengdpr/
 │   │   ├── class-wpog-terms-consent.php             T&C module bootstrap (e-commerce)
 │   │   ├── class-wpog-terms-consent-logger.php      {prefix}wpog_terms_consent_log I/O
 │   │   └── class-wpog-woocommerce-integration.php   WooCommerce checkout integration
+│   ├── legal-generator/
+│   │   └── class-wpog-legal-generator.php  Legal Doc Generator data layer (table CRUD, prefill bridge, supervisory authorities map)
 │   └── rest/
-│       └── class-wpog-rest.php             Registers /wpog/v1/* REST routes
+│       ├── class-wpog-rest.php             Registers /wpog/v1/* REST routes
+│       └── class-wpog-legal-rest.php       Registers /wpog/v1/legal-generator/* REST routes
 ├── admin/
 │   ├── class-wpog-admin.php           Menu, asset enqueue, POST router, CSV/JSON export
 │   ├── assets/
 │   │   ├── admin.css
-│   │   └── admin.js                   Repeater UI for cookies / scripts / blocker rules
+│   │   ├── admin.js                   Repeater UI for cookies / scripts / blocker rules
+│   │   ├── legal-generator.css        Legal Doc Generator wizard styling
+│   │   └── legal-generator.js         Legal Doc Generator — vanilla-JS 8-step wizard + promptBuilder + saved prompts
 │   └── views/
 │       ├── page-general.php           GDPR Settings — shared URLs (privacy_url, cookie_url)
 │       ├── page-cookie-settings.php   Cookie Consent — enabled, duration, logs, FAB, autoblocker
@@ -90,7 +95,9 @@ wp-opengdpr/
 │       ├── page-terms-consent.php     T&C — general settings + checkbox texts
 │       ├── page-terms-documents.php   T&C — version history (register version, SHA-256 hash)
 │       ├── page-terms-woocommerce.php T&C — WooCommerce checkout integration options
-│       └── page-terms-logs.php        T&C — acceptance log + integrity check + CSV export
+│       ├── page-terms-logs.php        T&C — acceptance log + integrity check + CSV export
+│       └── legal-generator/
+│           └── page-legal-generator.php  Legal Doc Generator — mount shell for the JS wizard
 ├── public/
 │   ├── class-wpog-public.php          Enqueue, inline styles, banner/popup render
 │   └── assets/
@@ -131,8 +138,10 @@ wp-opengdpr/
 | `WPOG_Terms_Consent_Logger` | `{prefix}wpog_terms_consent_log` I/O: `install_table()`, `ensure_table()`, `log()` (always anonymises IP via `WPOG_Logger::anonymize_ip()`), `query()`, `versions()`, `stats()` (totals + per-type + 30-day series), `purge_old()`. `DOCUMENT_TYPES` = `terms`, `privacy`, `marketing`, `age`. |
 | `WPOG_WooCommerce_Integration` | WooCommerce classic-checkout glue (HPOS compatible). Injects the consent checkboxes via `woocommerce_review_order_before_submit` (or `woocommerce_checkout_after_terms_and_conditions`), validates server-side via `woocommerce_checkout_process` (`wc_add_notice` blocks the order; marketing never blocks), saves the log + order meta via `woocommerce_checkout_order_created` (meta written through `$order->update_meta_data()`/`save()`), shows the recorded consent in the admin order screen (`woocommerce_admin_order_data_after_billing_address`), adds a "GDPR consents" order-list column (legacy `manage_*_posts_columns` + HPOS `manage_woocommerce_page_wc-orders_columns`), optionally hides the native WC terms checkbox (`woocommerce_checkout_show_terms` → `__return_false`), and shows a Block-Checkout incompatibility admin notice (`has_block('woocommerce/checkout')`). Field constants: `FIELD_TERMS` (`wpog_terms_consent`), `FIELD_PRIVACY` (`wpog_privacy_consent_wc`), `FIELD_MARKETING` (`wpog_marketing_consent_wc`), `FIELD_AGE` (`wpog_age_consent`). |
 | `WPOG_REST` | Registers REST routes under `wpog/v1`. Namespace constant: `WPOG_REST::NAMESPACE_V1`. Permission callback: `manage_options`. |
+| `WPOG_Legal_Generator` | Legal Doc Generator data layer. Manages `{prefix}wpog_legal_prompts` (`install_table()`, `ensure_table()`, `save()`, `query()` → `{rows,total}`, `get()` decodes `form_data` JSON, `delete()`). `prefill_data()` bridges existing modules (cookie/privacy/terms options + WooCommerce/CF7 presence) into the wizard. `supervisory_authorities()` returns a country→authority map (~31 EU/EEA + UK/CH). `DOCS` const = `['privacy','cookie','terms']`. |
+| `WPOG_Legal_REST` | Registers REST routes under `wpog/v1/legal-generator` (`NAMESPACE_V1='wpog/v1'`, `BASE='legal-generator'`). Routes: `GET /prefill`, `GET|POST /prompts`, `GET|DELETE /prompts/{id}`. All `manage_options` + `X-WP-Nonce`. |
 | `WPOG_Public` | Enqueues frontend CSS/JS, localises `WPOG_DATA` (consent runtime config), `WPOG_TRACK` (admin-only, contains `endpoint`, `nonce`, `page_url`). Renders banner+popup+FAB. |
-| `WPOG_Admin` | Registers four top-level WP admin menus (**GDPR Settings** slug `wpog`, **Cookie Consent** slug `wpog-cookie`, **Privacy Consent** slug `wpog-privacy`, **Terms & Conditions** slug `wpog-terms`); `route()` maps page slugs to view files; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_texts`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`. |
+| `WPOG_Admin` | Registers five top-level WP admin menus (**GDPR Settings** slug `wpog`, **Cookie Consent** slug `wpog-cookie`, **Privacy Consent** slug `wpog-privacy`, **Terms & Conditions** slug `wpog-terms`, **Legal Doc Generator** slug `wpog-legal`); `route()` maps page slugs to view files; on the `wpog-legal` page it enqueues `legal-generator.{css,js}` (dep `wp-i18n`) and localises **`wpogLegalGen`** = `{ restUrl, nonce (wp_rest), prefill, authorities }`; `handle_post()` switch routes per-form sanitisation (`general` saves only shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_texts`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`. |
 
 ---
 
@@ -146,6 +155,7 @@ wp-opengdpr/
 | `public/assets/wpog-form-consent.js` | Pages with a CF7 or WPForms form | Progressive-enhancement validation for the form consent checkbox. Binds to `.wpcf7-form` and `.wpforms-form`. Relies on the native `required` attribute + server-side validation; this script just adds inline error UX and scroll-into-view on submit. No localisation. |
 | `public/assets/wpog-terms-consent.js` | WooCommerce classic checkout | Listens for the `checkout_place_order` jQuery event; highlights missing mandatory T&C/Privacy/Age checkboxes (`.wpog-consent-error`), scrolls to the first error and returns `false` to block the WooCommerce AJAX submit. Server-side `wc_add_notice` remains authoritative. Depends on `jquery`. |
 | `admin/assets/admin.js` | Admin only | Color picker, media picker, repeatable-row UI for cookies / scripts / blocker rules. |
+| `admin/assets/legal-generator.js` | Admin only (Legal Doc Generator page) | Self-contained vanilla-JS IIFE (`const {__}=wp.i18n`). Mounts into `#wpog-legal-generator`. 8-step wizard (stepper, per-step validation, smooth conditional reveal, prefill badges, localStorage draft `wpog_legal_wizard_draft`). `buildPrompt()` assembles the AI prompt entirely client-side (no data leaves the browser) — applicable legal framework, data/cookie/transfer tables, T&C block; enforces the exclusions (no ODR platform, no pre-2021 SCCs, no fax) and adds Art. 54-bis online withdrawal for IT e-commerce. Output box copies to clipboard and saves via REST. Reads `window.wpogLegalGen`. Exposes `window.WPOG_LEGAL = { buildPrompt, getState, derivedTransfers }` for diagnostics. |
 
 ### Blocker boot contract
 
@@ -198,7 +208,9 @@ When an admin clicks **Add to Category**, `WPOG_Admin::handle_post()`
 | `wpog_form_consent` | Form privacy-consent module (independent from cookie consent). Keys: `enabled`, `privacy_policy_version`, `block_submit_without_consent`, `log_enabled`, `log_retention_days`, `checkbox_main_enabled`, `checkbox_main_required`, `checkbox_main_label` (supports a single `<a>`, `{privacy_url}` placeholder), `checkbox_main_error`, `checkbox_marketing_enabled`, `checkbox_marketing_required`, `checkbox_marketing_label`, `cf7_enabled`, `cf7_auto_inject`, `cf7_position` (`before_submit`/`after_fields`/`manual`), `cf7_form_ids` (empty = all), `wpforms_enabled`, `wpforms_form_ids` (empty = all). Saved across three admin pages via `WPOG_Settings::update()` (merge). |
 | `wpog_terms_consent` | Terms & Conditions module (e-commerce). Keys: `enabled`, `terms_page_id`, `terms_version`, `terms_last_updated`, `privacy_page_id`, `require_terms_acceptance`, `require_privacy_acceptance`, `show_marketing_consent`, `require_age_verification`, `minimum_age`, `terms_checkbox_label` (`{terms_url}`/`{privacy_url}`), `privacy_checkbox_label` (`{privacy_url}`), `marketing_checkbox_label`, `age_checkbox_label` (`{min_age}`), `terms_error_message`, `privacy_error_message`, `age_error_message` (`{min_age}`), `log_enabled`, `log_save_to_order_meta`, `log_retention_days` (default 730), `woocommerce_enabled`, `wc_checkout_position` (`before_submit`/`after_terms`), `wc_replace_native_terms`, `wc_show_terms_inline`, `wc_order_column`. Saved across the General/WooCommerce admin pages via `WPOG_Settings::update()`. |
 | `wpog_terms_versions` | T&C version history: `[ { version, effective_date, reason, hash (SHA-256), status (active/historic) } ]`. Written by `WPOG_Terms_Consent::register_version()` from the **Documents & Versions** page. |
-| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.3.0`). |
+| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.4.0`). |
+
+> The Legal Doc Generator stores saved prompts in its own table (`{prefix}wpog_legal_prompts`), not in an option. It does not introduce any `wpog_*` option key.
 
 ---
 
@@ -210,6 +222,7 @@ When an admin clicks **Add to Category**, `WPOG_Admin::handle_post()`
 | `{prefix}wpog_detections`  | `WPOG_Tracking` | `id, type, value, domain, page_url, first_seen, last_seen, hits, status, category_hint, value_hash`. Unique key on `(type, value_hash)`. |
 | `{prefix}wpog_form_consent_log` | `WPOG_Form_Consent_Logger` | `id, consent_id, form_id, form_type, form_title, page_url, consent_given, marketing_consent, consent_text, privacy_version, ip_address, user_agent, consent_date, created_at`. Audit-trail proof of form consent (GDPR Art. 7). IP always anonymised; form payload never stored. |
 | `{prefix}wpog_terms_consent_log` | `WPOG_Terms_Consent_Logger` | `id, consent_id, order_id, user_id, document_type, document_version, document_hash, consent_given, ip_address, user_agent, page_url, context, integration, consent_date, created_at`. Audit-trail proof of T&C/Privacy/Marketing/Age acceptance at checkout. IP always anonymised; `document_hash` is the SHA-256 of the Terms text at acceptance time. |
+| `{prefix}wpog_legal_prompts` | `WPOG_Legal_Generator` | `id, prompt_name, form_data (LONGTEXT JSON), prompt_text (LONGTEXT), documents (CSV of `privacy,cookie,terms`), language, created_by, created_at, updated_at`. Stores saved Legal Doc Generator prompts. No personal data; admin-only. |
 
 Terms-consent `document_type` values: `terms`, `privacy`, `marketing`, `age`.
 Terms-consent `context` values: `checkout`, `registration`, `account`, `generic`.
@@ -225,6 +238,11 @@ Detection `type` values: `script`, `iframe`, `img`, `link`, `cookie`.
 | Route | Method | Auth | Body | Returns |
 |---|---|---|---|---|
 | `/wpog/v1/track` | POST | `manage_options` + `X-WP-Nonce: <wp_rest nonce>` header | `{ items: [ { type, value, domain?, page_url?, category_hint? } ] }` (capped at 500) | `{ ok: true, stored: N }` |
+| `/wpog/v1/legal-generator/prefill` | GET | `manage_options` + `X-WP-Nonce` | — | `WPOG_Legal_Generator::prefill_data()` |
+| `/wpog/v1/legal-generator/prompts` | GET | `manage_options` + `X-WP-Nonce` | `?page` | `{ rows: [ { id, prompt_name, documents, language, created_by, created_at, updated_at } ], total }` |
+| `/wpog/v1/legal-generator/prompts` | POST | `manage_options` + `X-WP-Nonce` | `{ prompt_name, form_data, prompt_text, documents[], language }` | `{ ok: true, id }` |
+| `/wpog/v1/legal-generator/prompts/{id}` | GET | `manage_options` + `X-WP-Nonce` | — | full row (`form_data` decoded) |
+| `/wpog/v1/legal-generator/prompts/{id}` | DELETE | `manage_options` + `X-WP-Nonce` | — | `{ ok: bool }` |
 
 AJAX (still on `admin-ajax.php`):
 
@@ -379,7 +397,44 @@ Checkboxes are never pre-ticked. IP anonymisation is mandatory and shared via
 
 ---
 
-## 14. Open follow-ups
+## 14. Legal Document Prompt Generator module
+
+Fourth independent module: an admin-only wizard that assembles an AI prompt for
+drafting GDPR/ePrivacy/e-commerce legal documents. Wired in `WPOG_Core` via
+`WPOG_Legal_Generator::init()` (table install + REST registration). The admin
+menu is a fifth top-level menu (slug `wpog-legal`).
+
+Privacy/architecture notes:
+- **Nothing is sent to any AI service.** The wizard runs 100% client-side
+  (`admin/assets/legal-generator.js`); `buildPrompt()` assembles a prompt string
+  that the admin copies to their own clipboard. The only server calls are the
+  REST CRUD for *saving/loading* prompts (`{prefix}wpog_legal_prompts`).
+- **Pre-fill bridge:** `WPOG_Legal_Generator::prefill_data()` reads the cookie,
+  privacy and terms options plus WooCommerce/CF7 presence and exposes them as the
+  localized `wpogLegalGen.prefill` object. Pre-filled fields get a 🔗 badge.
+- **Supervisory authorities:** `supervisory_authorities()` provides a
+  country→{name,url,address} map consumed by Steps 2 and 6.
+
+Wizard flow (8 steps, vanilla JS): 1 Business Identity → 2 Website Scope →
+3 Data Collection (dynamic activity table) → 4 Third-Party Services & Cookies →
+5 Data Transfers (auto-derived from selected services) → 6 User Rights →
+7 Document Language & Preferences → 8 Review & Confirm (per-step summary +
+non-dismissable AI legal disclaimer + Generate). State persists to localStorage
+(`wpog_legal_wizard_draft`).
+
+Prompt-builder legal guarantees (May 2026 framework): includes the mandatory AI
+legal notice verbatim; selects the applicable framework by country/audience;
+adds the **Art. 54-bis Codice del Consumo online withdrawal function** for
+Italian e-commerce, **GPSR responsible person**, **EU AI Act Art. 50** disclosure
+when AI features are flagged; documents cross-border transfers with 2021 SCC /
+DPF safeguards; and explicitly instructs the AI to **never reference the
+abolished ODR platform, pre-2021 SCCs, or fax**.
+
+Diagnostics global: `window.WPOG_LEGAL = { buildPrompt, getState, derivedTransfers }`.
+
+---
+
+## 15. Open follow-ups
 
 - Vendor-purpose mapping (multi-category rules per domain) — for now one rule is
   one category.
@@ -397,3 +452,7 @@ Checkboxes are never pre-ticked. IP anonymisation is mandatory and shared via
 - T&C module: only WooCommerce is integrated; a generic (non-WC) checkout
   integration (`integration = 'generic'`, contexts `registration`/`account`) is
   scaffolded in the logger but has no front-end yet.
+- Legal Doc Generator: the spec proposed a React/`admin-app` SPA; the shipped
+  implementation is vanilla JS (matching the plugin's existing conventions and
+  `wp-i18n` dependency). The `serviceTransferMap`/`SERVICE_DETAILS` catalog can be
+  extended as new third-party services are added.

@@ -33,6 +33,7 @@ $tables = array(
     $wpdb->prefix . 'wpog_detections',
     $wpdb->prefix . 'wpog_form_consent_log',
     $wpdb->prefix . 'wpog_terms_consent_log',
+    $wpdb->prefix . 'wpog_legal_prompts',
 );
 foreach ( $tables as $table ) {
     $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
