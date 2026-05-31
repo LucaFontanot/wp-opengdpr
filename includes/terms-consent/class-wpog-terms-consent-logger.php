@@ -234,6 +234,84 @@ class WPOG_Terms_Consent_Logger {
         );
     }
 
+    /* ---------- per-user queries (My Account + WP Privacy API) ---------- */
+
+    /**
+     * All consent rows belonging to a user, newest first. Matches both the
+     * directly-stored user_id and any rows attached to the supplied order ids
+     * (covers consent given while logged in or tied to that user's orders).
+     *
+     * @param int   $user_id
+     * @param int[] $order_ids Optional list of order ids belonging to the user.
+     * @return array Row objects.
+     */
+    public static function get_by_user( $user_id, array $order_ids = array() ) {
+        global $wpdb;
+        self::ensure_table();
+
+        $user_id = absint( $user_id );
+        $table   = self::table_name();
+
+        $where  = array();
+        $params = array();
+
+        if ( $user_id > 0 ) {
+            $where[]  = 'user_id = %d';
+            $params[] = $user_id;
+        }
+
+        $order_ids = array_values( array_filter( array_map( 'absint', $order_ids ) ) );
+        if ( $order_ids ) {
+            $placeholders = implode( ',', array_fill( 0, count( $order_ids ), '%d' ) );
+            $where[]      = "order_id IN ({$placeholders})";
+            $params       = array_merge( $params, $order_ids );
+        }
+
+        if ( ! $where ) {
+            return array();
+        }
+
+        $sql = "SELECT * FROM {$table} WHERE " . implode( ' OR ', $where ) . ' ORDER BY consent_date DESC';
+        return (array) $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
+    }
+
+    /**
+     * Anonymise (rather than hard-delete) every consent row of a user: the proof
+     * that consent was given is kept for legal accountability, but the personal
+     * identifiers are scrubbed. Used by the WP Privacy "erase personal data" tool.
+     *
+     * @param int   $user_id
+     * @param int[] $order_ids
+     * @return int Number of affected rows.
+     */
+    public static function anonymize_user( $user_id, array $order_ids = array() ) {
+        global $wpdb;
+        self::ensure_table();
+
+        $user_id = absint( $user_id );
+        $table   = self::table_name();
+
+        $where  = array();
+        $params = array();
+
+        if ( $user_id > 0 ) {
+            $where[]  = 'user_id = %d';
+            $params[] = $user_id;
+        }
+        $order_ids = array_values( array_filter( array_map( 'absint', $order_ids ) ) );
+        if ( $order_ids ) {
+            $placeholders = implode( ',', array_fill( 0, count( $order_ids ), '%d' ) );
+            $where[]      = "order_id IN ({$placeholders})";
+            $params       = array_merge( $params, $order_ids );
+        }
+        if ( ! $where ) {
+            return 0;
+        }
+
+        $sql = "UPDATE {$table} SET ip_address = '', user_agent = '' WHERE " . implode( ' OR ', $where );
+        return (int) $wpdb->query( $wpdb->prepare( $sql, $params ) );
+    }
+
     /**
      * Delete records older than the configured retention period. Hooked onto
      * the existing wpog_daily_event cron.

@@ -41,6 +41,9 @@ class WPOG_Loader {
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent-logger.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-woocommerce-integration.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-woocommerce-blocks-integration.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-registration.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-my-account.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-privacy-api.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent.php';
 
         // Core wiring.

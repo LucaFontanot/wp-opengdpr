@@ -43,10 +43,16 @@ class WPOG_WooCommerce_Blocks_Integration {
         }
 
         add_action( 'woocommerce_init', array( __CLASS__, 'register_fields' ) );
-        // Fire after payment is confirmed. Also hook 'completed' for virtual/free orders
-        // that skip 'processing'. A duplicate-guard on order meta prevents double logging.
+
+        // Log consent on every status transition that a block-checkout order can
+        // reach. Using status hooks (rather than the Store API request hook) ensures
+        // the order is fully persisted to the DB so all _wc_additional_field_ meta is
+        // readable. The duplicate-guard on _wpog_blocks_consent_logged prevents
+        // double-logging across multiple status transitions.
+        add_action( 'woocommerce_order_status_pending',    array( __CLASS__, 'save_consent_data' ), 10, 1 );
         add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'save_consent_data' ), 10, 1 );
         add_action( 'woocommerce_order_status_completed',  array( __CLASS__, 'save_consent_data' ), 10, 1 );
+        add_action( 'woocommerce_order_status_on_hold',    array( __CLASS__, 'save_consent_data' ), 10, 1 );
 
         // Suppress native WC Terms block when our fields handle consent.
         add_filter( 'render_block', array( __CLASS__, 'suppress_native_terms_block' ), 10, 2 );
@@ -152,27 +158,33 @@ class WPOG_WooCommerce_Blocks_Integration {
     /* ---------- logging ---------- */
 
     /**
-     * Persist the consent proof to the log table and optionally to order meta.
+     * Entry point for the order-status hooks. Fetches the order by ID (safe because the
+     * order is fully persisted by the time any status hook fires, so all
+     * _wc_additional_field_ meta is readable from the DB). The duplicate-guard on
+     * _wpog_blocks_consent_logged prevents double-logging across status transitions.
      *
-     * Hooked on woocommerce_order_status_processing (paid orders) and
-     * woocommerce_order_status_completed (virtual / free orders that skip
-     * the 'processing' status). A meta flag prevents double-logging when an
-     * order moves through both statuses.
-     *
-     * The WC Additional Checkout Fields API writes _wc_additional_field_wpog/*
-     * order meta when the customer submits the block checkout, so by the time
-     * either status hook fires the values are already in the order.
-     *
-     * @param int $order_id The order ID.
+     * @param int $order_id
      */
     public static function save_consent_data( $order_id ) {
         $order = wc_get_order( $order_id );
-        if ( ! $order instanceof WC_Order ) {
+        if ( $order instanceof WC_Order ) {
+            self::do_log_consent( $order );
+        }
+    }
+
+    /**
+     * Core logging logic shared by all status-hook entry points.
+     *
+     * @param WC_Order $order
+     */
+    private static function do_log_consent( WC_Order $order ) {
+        // Only handle orders placed through the WooCommerce Store API (block checkout).
+        // Classic checkout orders are logged by WPOG_WooCommerce_Integration.
+        if ( 'store-api' !== $order->get_created_via() ) {
             return;
         }
 
-        // Prevent duplicate logging when the order passes through both
-        // 'processing' and 'completed' statuses.
+        // Prevent duplicate logging across multiple status transitions.
         if ( $order->get_meta( '_wpog_blocks_consent_logged' ) ) {
             return;
         }
@@ -194,37 +206,37 @@ class WPOG_WooCommerce_Blocks_Integration {
         $mkt_given     = (bool) $order->get_meta( '_wc_additional_field_wpog/marketing_consent' );
         $age_given     = (bool) $order->get_meta( '_wc_additional_field_wpog/age_consent' );
 
-        // Terms acceptance.
-        if ( $terms_given ) {
+        // Terms acceptance — log regardless of value when the checkbox is shown.
+        if ( ! empty( $s['require_terms_acceptance'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'terms',
                 'document_version' => $terms_version,
                 'document_hash'    => $document_hash,
-                'consent_given'    => 1,
+                'consent_given'    => $terms_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce_blocks',
                 'page_url'         => $checkout_url,
             ) );
         }
 
-        // Privacy acceptance.
-        if ( $privacy_given ) {
+        // Privacy acceptance — log regardless of value when the checkbox is shown.
+        if ( ! empty( $s['require_privacy_acceptance'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'privacy',
                 'document_version' => (string) WPOG_Settings::get( 'form_consent', 'privacy_policy_version', '1.0' ),
                 'document_hash'    => '',
-                'consent_given'    => 1,
+                'consent_given'    => $privacy_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce_blocks',
                 'page_url'         => $checkout_url,
             ) );
         }
 
-        // Marketing (record both given and not-given whenever the checkbox is shown).
+        // Marketing — always record both given and not-given when the checkbox is shown.
         if ( ! empty( $s['show_marketing_consent'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
@@ -239,15 +251,15 @@ class WPOG_WooCommerce_Blocks_Integration {
             ) );
         }
 
-        // Age verification.
-        if ( ! empty( $s['require_age_verification'] ) && $age_given ) {
+        // Age verification — log regardless of value when the checkbox is shown.
+        if ( ! empty( $s['require_age_verification'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'age',
                 'document_version' => '1.0',
                 'document_hash'    => '',
-                'consent_given'    => 1,
+                'consent_given'    => $age_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce_blocks',
                 'page_url'         => $checkout_url,
@@ -266,7 +278,7 @@ class WPOG_WooCommerce_Blocks_Integration {
             $order->update_meta_data( '_wpog_consent_ip',        WPOG_Logger::anonymize_ip( WPOG_Logger::get_client_ip() ) );
         }
 
-        // Mark as logged — prevents duplicate entries if order status changes again.
+        // Mark as logged — prevents duplicate entries across hooks and status transitions.
         $order->update_meta_data( '_wpog_blocks_consent_logged', '1' );
         $order->save();
     }

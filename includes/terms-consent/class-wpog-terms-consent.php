@@ -28,10 +28,17 @@ class WPOG_Terms_Consent {
             return;
         }
 
+        // WP Privacy API exporter/eraser — registered regardless of WooCommerce
+        // so the consent records remain exportable/erasable even if WooCommerce
+        // is temporarily inactive.
+        WPOG_Privacy_API::init();
+
         // WooCommerce integration — only when WooCommerce is active.
         if ( class_exists( 'WooCommerce' ) ) {
             WPOG_WooCommerce_Integration::init();
             WPOG_WooCommerce_Blocks_Integration::init();
+            WPOG_Terms_Registration::init();
+            WPOG_Terms_My_Account::init();
         }
     }
 

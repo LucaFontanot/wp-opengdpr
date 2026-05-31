@@ -2,7 +2,7 @@
 WPOG_Admin::notice();
 $s         = WPOG_Settings::get( 'terms_consent' );
 $wc_active = class_exists( 'WooCommerce' );
-$position  = in_array( $s['wc_checkout_position'] ?? 'before_submit', array( 'before_submit', 'after_terms' ), true ) ? $s['wc_checkout_position'] : 'before_submit';
+$position  = in_array( $s['wc_checkout_position'] ?? 'before_submit', array( 'before_submit', 'before_terms', 'after_terms' ), true ) ? $s['wc_checkout_position'] : 'before_submit';
 ?>
 <h1><?php esc_html_e( 'Terms & Conditions — WooCommerce', 'wp-opengdpr' ); ?></h1>
 
@@ -20,8 +20,10 @@ $position  = in_array( $s['wc_checkout_position'] ?? 'before_submit', array( 'be
     <tr><th><?php esc_html_e( 'Checkbox position', 'wp-opengdpr' ); ?></th>
         <td><select name="wpog_tc[wc_checkout_position]">
             <option value="before_submit" <?php selected( $position, 'before_submit' ); ?>><?php esc_html_e( 'Before the “Place order” button', 'wp-opengdpr' ); ?></option>
+            <option value="before_terms" <?php selected( $position, 'before_terms' ); ?>><?php esc_html_e( 'Before the native Terms block', 'wp-opengdpr' ); ?></option>
             <option value="after_terms" <?php selected( $position, 'after_terms' ); ?>><?php esc_html_e( 'After the native Terms block', 'wp-opengdpr' ); ?></option>
-        </select></td></tr>
+        </select>
+        <p class="description"><?php esc_html_e( 'Classic checkout only. The Block checkout uses the WooCommerce Additional Checkout Fields API automatically.', 'wp-opengdpr' ); ?></p></td></tr>
 
     <tr><th><?php esc_html_e( 'Replace native WC Terms checkbox', 'wp-opengdpr' ); ?></th>
         <td><label><input type="checkbox" name="wpog_tc[wc_replace_native_terms]" value="1" <?php checked( $s['wc_replace_native_terms'] ); ?> /> <?php esc_html_e( 'Disable WooCommerce’s own Terms checkbox and let this plugin handle it', 'wp-opengdpr' ); ?></label></td></tr>
@@ -37,6 +39,10 @@ $position  = in_array( $s['wc_checkout_position'] ?? 'before_submit', array( 'be
     <tr><th><?php esc_html_e( 'Registration consent', 'wp-opengdpr' ); ?></th>
         <td><label><input type="checkbox" name="wpog_tc[wc_registration_consent]" value="1" <?php checked( $s['wc_registration_consent'] ); ?> /> <?php esc_html_e( 'Show Privacy and Marketing consent checkboxes on the My Account registration form and log acceptance', 'wp-opengdpr' ); ?></label>
         <p class="description"><?php esc_html_e( 'Uses the same Privacy and Marketing settings configured in the General tab. Terms acceptance is not shown (it is checkout-specific).', 'wp-opengdpr' ); ?></p></td></tr>
+
+    <tr><th><?php esc_html_e( 'My Account privacy page', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog_tc[myaccount_privacy_enabled]" value="1" <?php checked( $s['myaccount_privacy_enabled'] ); ?> /> <?php esc_html_e( 'Add a “Privacy & Consents” tab to My Account (consent history, consent withdrawal, data export/erasure requests)', 'wp-opengdpr' ); ?></label>
+        <p class="description"><?php esc_html_e( 'After enabling/disabling this option the permalinks are flushed automatically.', 'wp-opengdpr' ); ?></p></td></tr>
 </table>
 <?php WPOG_Admin::form_close(); ?>
 

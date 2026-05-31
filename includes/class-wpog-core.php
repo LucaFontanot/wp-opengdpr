@@ -71,6 +71,14 @@ class WPOG_Core {
         WPOG_Terms_Consent_Logger::install_table();
         WPOG_Legal_Generator::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
+
+        // Register the My Account privacy endpoint, then flush rewrite rules so
+        // the /my-account/privacy-consent/ URL works without a manual permalink save.
+        if ( class_exists( 'WPOG_Terms_My_Account' ) ) {
+            WPOG_Terms_My_Account::add_endpoint();
+        }
+        flush_rewrite_rules();
+
         if ( ! wp_next_scheduled( 'wpog_daily_event' ) ) {
             wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wpog_daily_event' );
         }
@@ -93,6 +101,12 @@ class WPOG_Core {
         WPOG_Terms_Consent_Logger::install_table();
         WPOG_Legal_Generator::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
+
+        // 1.5.0: flush rewrite rules so the My Account privacy endpoint
+        // (/my-account/privacy-consent/) resolves without needing a manual
+        // Settings → Permalinks save. Scheduled late on init so add_endpoint()
+        // has already registered the endpoint before flush_rewrite_rules() runs.
+        add_action( 'init', 'flush_rewrite_rules', 9999 );
     }
 
     public static function deactivate() {
@@ -100,5 +114,7 @@ class WPOG_Core {
         if ( $ts ) {
             wp_unschedule_event( $ts, 'wpog_daily_event' );
         }
+        // Drop the rewrite endpoint registered for the My Account privacy tab.
+        flush_rewrite_rules();
     }
 }

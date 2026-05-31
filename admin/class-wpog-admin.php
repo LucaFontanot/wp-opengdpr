@@ -548,16 +548,27 @@ class WPOG_Admin {
 
             case 'terms_woocommerce':
                 $in  = wp_unslash( (array) ( $_POST['wpog_tc'] ?? array() ) );
-                $pos = in_array( $in['wc_checkout_position'] ?? 'before_submit', array( 'before_submit', 'after_terms' ), true ) ? $in['wc_checkout_position'] : 'before_submit';
+                $pos = in_array( $in['wc_checkout_position'] ?? 'before_submit', array( 'before_submit', 'before_terms', 'after_terms' ), true ) ? $in['wc_checkout_position'] : 'before_submit';
+                $prev_myaccount = (int) WPOG_Settings::get( 'terms_consent', 'myaccount_privacy_enabled', 1 );
+                $new_myaccount  = ! empty( $in['myaccount_privacy_enabled'] ) ? 1 : 0;
                 WPOG_Settings::update( 'terms_consent', array(
-                    'woocommerce_enabled'     => ! empty( $in['woocommerce_enabled'] ) ? 1 : 0,
-                    'wc_checkout_position'    => $pos,
-                    'wc_replace_native_terms' => ! empty( $in['wc_replace_native_terms'] ) ? 1 : 0,
-                    'wc_show_terms_inline'    => ! empty( $in['wc_show_terms_inline'] ) ? 1 : 0,
-                    'log_save_to_order_meta'  => ! empty( $in['log_save_to_order_meta'] ) ? 1 : 0,
-                    'wc_order_column'         => ! empty( $in['wc_order_column'] ) ? 1 : 0,
-                    'wc_registration_consent' => ! empty( $in['wc_registration_consent'] ) ? 1 : 0,
+                    'woocommerce_enabled'       => ! empty( $in['woocommerce_enabled'] ) ? 1 : 0,
+                    'wc_checkout_position'      => $pos,
+                    'wc_replace_native_terms'   => ! empty( $in['wc_replace_native_terms'] ) ? 1 : 0,
+                    'wc_show_terms_inline'      => ! empty( $in['wc_show_terms_inline'] ) ? 1 : 0,
+                    'log_save_to_order_meta'    => ! empty( $in['log_save_to_order_meta'] ) ? 1 : 0,
+                    'wc_order_column'           => ! empty( $in['wc_order_column'] ) ? 1 : 0,
+                    'wc_registration_consent'   => ! empty( $in['wc_registration_consent'] ) ? 1 : 0,
+                    'myaccount_privacy_enabled' => $new_myaccount,
                 ) );
+                // The My Account endpoint must be (de)registered when the toggle
+                // changes, so flush the rewrite rules once on transition.
+                if ( $prev_myaccount !== $new_myaccount ) {
+                    if ( $new_myaccount && class_exists( 'WPOG_Terms_My_Account' ) ) {
+                        WPOG_Terms_My_Account::add_endpoint();
+                    }
+                    flush_rewrite_rules();
+                }
                 break;
 
             case 'terms_register_version':

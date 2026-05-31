@@ -44,6 +44,8 @@ class WPOG_WooCommerce_Integration {
         $position = $s['wc_checkout_position'] ?? 'before_submit';
         if ( 'after_terms' === $position ) {
             add_action( 'woocommerce_checkout_after_terms_and_conditions', array( __CLASS__, 'inject_consent_checkboxes' ), 10 );
+        } elseif ( 'before_terms' === $position ) {
+            add_action( 'woocommerce_checkout_before_terms_and_conditions', array( __CLASS__, 'inject_consent_checkboxes' ), 10 );
         } else {
             add_action( 'woocommerce_review_order_before_submit', array( __CLASS__, 'inject_consent_checkboxes' ), 10 );
         }
@@ -65,12 +67,9 @@ class WPOG_WooCommerce_Integration {
             add_action( 'manage_woocommerce_page_wc-orders_custom_column', array( __CLASS__, 'render_order_column_hpos' ), 20, 2 );
         }
 
-        // Registration consent (My Account page).
-        if ( ! empty( $s['wc_registration_consent'] ) ) {
-            add_action( 'woocommerce_register_form', array( __CLASS__, 'inject_registration_checkboxes' ) );
-            add_filter( 'woocommerce_process_registration_errors', array( __CLASS__, 'validate_registration_consent' ), 10, 4 );
-            add_action( 'woocommerce_created_customer', array( __CLASS__, 'save_registration_consent' ), 10, 1 );
-        }
+        // Registration consent (My Account page) is handled by
+        // WPOG_Terms_Registration; checkout-account creation is also covered
+        // there via the shared woocommerce_created_customer hook.
 
         // Block checkout compatibility notice.
         add_action( 'admin_notices', array( __CLASS__, 'maybe_show_blocks_notice' ) );
@@ -225,37 +224,39 @@ class WPOG_WooCommerce_Integration {
         $document_hash = WPOG_Terms_Consent::terms_hash();
         $checkout_url  = function_exists( 'wc_get_checkout_url' ) ? wc_get_checkout_url() : '';
 
-        // Terms acceptance.
-        if ( $terms_given ) {
+        // Terms — log regardless of value when the checkbox is shown.
+        // Validation (validate_consent) already blocked the order if terms were required
+        // and not given, so consent_given=0 here can only happen for non-required scenarios.
+        if ( ! empty( $s['require_terms_acceptance'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'terms',
                 'document_version' => $terms_version,
                 'document_hash'    => $document_hash,
-                'consent_given'    => 1,
+                'consent_given'    => $terms_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce',
                 'page_url'         => $checkout_url,
             ) );
         }
 
-        // Privacy acceptance.
-        if ( $privacy_given ) {
+        // Privacy — log regardless of value when the checkbox is shown.
+        if ( ! empty( $s['require_privacy_acceptance'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'privacy',
                 'document_version' => (string) WPOG_Settings::get( 'form_consent', 'privacy_policy_version', '1.0' ),
                 'document_hash'    => '',
-                'consent_given'    => 1,
+                'consent_given'    => $privacy_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce',
                 'page_url'         => $checkout_url,
             ) );
         }
 
-        // Marketing (record both given and not-given when the checkbox is shown).
+        // Marketing — always record both given and not-given when the checkbox is shown.
         if ( ! empty( $s['show_marketing_consent'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
@@ -270,15 +271,15 @@ class WPOG_WooCommerce_Integration {
             ) );
         }
 
-        // Age verification.
-        if ( ! empty( $s['require_age_verification'] ) && $age_given ) {
+        // Age verification — log regardless of value when the checkbox is shown.
+        if ( ! empty( $s['require_age_verification'] ) ) {
             WPOG_Terms_Consent_Logger::log( array(
                 'order_id'         => $order_id,
                 'user_id'          => $user_id,
                 'document_type'    => 'age',
                 'document_version' => '1.0',
                 'document_hash'    => '',
-                'consent_given'    => 1,
+                'consent_given'    => $age_given ? 1 : 0,
                 'context'          => 'checkout',
                 'integration'      => 'woocommerce',
                 'page_url'         => $checkout_url,
@@ -296,121 +297,6 @@ class WPOG_WooCommerce_Integration {
             $order->update_meta_data( '_wpog_consent_date',      current_time( 'mysql' ) );
             $order->update_meta_data( '_wpog_consent_ip',        WPOG_Logger::anonymize_ip( WPOG_Logger::get_client_ip() ) );
             $order->save();
-        }
-    }
-
-    /* ---------- registration ---------- */
-
-    /**
-     * Field names used on the My Account registration form.
-     * Suffixed with _reg to avoid any collision with checkout fields.
-     */
-    const FIELD_PRIVACY_REG   = 'wpog_privacy_consent_reg';
-    const FIELD_MARKETING_REG = 'wpog_marketing_consent_reg';
-
-    /**
-     * Inject Privacy and Marketing consent checkboxes into the WooCommerce
-     * My Account registration form (woocommerce_register_form action).
-     * Terms acceptance is checkout-specific and is not shown here.
-     */
-    public static function inject_registration_checkboxes() {
-        $s       = WPOG_Settings::get( 'terms_consent' );
-        $allowed = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
-
-        WPOG_Terms_Consent::enqueue_assets();
-
-        echo '<div class="wpog-terms-consent-wrapper wpog-registration">';
-
-        if ( ! empty( $s['require_privacy_acceptance'] ) ) {
-            printf(
-                '<p class="form-row wpog-consent-field wpog-consent-privacy validate-required">
-                    <label class="woocommerce-form__label checkbox">
-                        <input type="checkbox" name="%1$s" value="1" class="input-checkbox" required aria-required="true">
-                        <span class="wpog-consent-label">%2$s</span>
-                    </label>
-                </p>',
-                esc_attr( self::FIELD_PRIVACY_REG ),
-                wp_kses( WPOG_Terms_Consent::privacy_label(), $allowed )
-            );
-        }
-
-        if ( ! empty( $s['show_marketing_consent'] ) ) {
-            printf(
-                '<p class="form-row wpog-consent-field wpog-consent-marketing">
-                    <label class="woocommerce-form__label checkbox">
-                        <input type="checkbox" name="%1$s" value="1" class="input-checkbox">
-                        <span class="wpog-consent-label">%2$s</span>
-                    </label>
-                </p>',
-                esc_attr( self::FIELD_MARKETING_REG ),
-                wp_kses( WPOG_Terms_Consent::marketing_label(), $allowed )
-            );
-        }
-
-        echo '</div>';
-    }
-
-    /**
-     * Block registration when the mandatory privacy consent is missing.
-     *
-     * @param  WP_Error $errors
-     * @param  string   $username
-     * @param  string   $password
-     * @param  string   $email
-     * @return WP_Error
-     */
-    public static function validate_registration_consent( $errors, $username, $password, $email ) {
-        $s = WPOG_Settings::get( 'terms_consent' );
-        if ( ! empty( $s['require_privacy_acceptance'] ) && ! self::posted( self::FIELD_PRIVACY_REG ) ) {
-            $errors->add(
-                'wpog_privacy_required',
-                esc_html( $s['privacy_error_message'] ?? __( 'You must accept the Privacy Policy to create an account.', 'wp-opengdpr' ) )
-            );
-        }
-        return $errors;
-    }
-
-    /**
-     * Log the consent proof when a new WooCommerce customer account is created
-     * (woocommerce_created_customer — fires on My Account registration and on
-     * checkout account-creation when the user registers during checkout).
-     *
-     * @param int $customer_id The new WP user ID.
-     */
-    public static function save_registration_consent( $customer_id ) {
-        $s = WPOG_Settings::get( 'terms_consent' );
-        if ( empty( $s['log_enabled'] ) ) {
-            return;
-        }
-
-        $privacy_given = self::posted( self::FIELD_PRIVACY_REG );
-        $mkt_given     = self::posted( self::FIELD_MARKETING_REG );
-        $page_url      = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : '';
-
-        if ( ! empty( $s['require_privacy_acceptance'] ) ) {
-            WPOG_Terms_Consent_Logger::log( array(
-                'user_id'          => $customer_id,
-                'document_type'    => 'privacy',
-                'document_version' => (string) WPOG_Settings::get( 'form_consent', 'privacy_policy_version', '1.0' ),
-                'document_hash'    => '',
-                'consent_given'    => $privacy_given ? 1 : 0,
-                'context'          => 'registration',
-                'integration'      => 'woocommerce',
-                'page_url'         => $page_url,
-            ) );
-        }
-
-        if ( ! empty( $s['show_marketing_consent'] ) ) {
-            WPOG_Terms_Consent_Logger::log( array(
-                'user_id'          => $customer_id,
-                'document_type'    => 'marketing',
-                'document_version' => '1.0',
-                'document_hash'    => '',
-                'consent_given'    => $mkt_given ? 1 : 0,
-                'context'          => 'registration',
-                'integration'      => 'woocommerce',
-                'page_url'         => $page_url,
-            ) );
         }
     }
 
