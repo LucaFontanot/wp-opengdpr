@@ -77,21 +77,23 @@ class WPOG_WooCommerce_Blocks_Integration {
 
     /**
      * Register each consent field with the WC Additional Checkout Fields API.
-     * WooCommerce blocks' CheckboxControl renders the label via dangerouslySetInnerHTML,
-     * so HTML (specifically <a> links) is supported and renders as clickable inline links.
+     *
+     * The WooCommerce Store API serializes the label as a plain string before
+     * it reaches the React CheckboxControl — HTML tags are not rendered.
+     * We convert <a href="URL">text</a> to "text (URL)" so the link destination
+     * is still visible to the user without raw markup showing.
      */
     public static function register_fields() {
         if ( ! function_exists( 'woocommerce_register_additional_checkout_field' ) ) {
             return;
         }
 
-        $s       = WPOG_Settings::get( 'terms_consent' );
-        $allowed = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
+        $s = WPOG_Settings::get( 'terms_consent' );
 
         if ( ! empty( $s['require_terms_acceptance'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/terms_consent',
-                'label'    => wp_kses( WPOG_Terms_Consent::terms_label(), $allowed ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::terms_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -101,7 +103,7 @@ class WPOG_WooCommerce_Blocks_Integration {
         if ( ! empty( $s['require_privacy_acceptance'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/privacy_consent',
-                'label'    => wp_kses( WPOG_Terms_Consent::privacy_label(), $allowed ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::privacy_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => true,
@@ -111,7 +113,7 @@ class WPOG_WooCommerce_Blocks_Integration {
         if ( ! empty( $s['show_marketing_consent'] ) ) {
             woocommerce_register_additional_checkout_field( array(
                 'id'       => 'wpog/marketing_consent',
-                'label'    => wp_kses( WPOG_Terms_Consent::marketing_label(), $allowed ),
+                'label'    => self::plain_label( WPOG_Terms_Consent::marketing_label() ),
                 'location' => 'order',
                 'type'     => 'checkbox',
                 'required' => false,
@@ -127,6 +129,24 @@ class WPOG_WooCommerce_Blocks_Integration {
                 'required' => true,
             ) );
         }
+    }
+
+    /**
+     * Convert an HTML label to plain text for the WC block checkout API.
+     * <a href="URL">text</a> → "text (URL)"; empty href omits the URL.
+     * All remaining tags are stripped.
+     */
+    private static function plain_label( $html ) {
+        $plain = preg_replace_callback(
+            '/<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/is',
+            static function ( $m ) {
+                $url  = trim( $m[1] );
+                $text = wp_strip_all_tags( $m[2] );
+                return $url ? "{$text} ({$url})" : $text;
+            },
+            $html
+        );
+        return wp_strip_all_tags( $plain ?? $html );
     }
 
     /* ---------- logging ---------- */
