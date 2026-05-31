@@ -97,29 +97,32 @@
 // Service catalogs (id, label) per section.
     var ANALYTICS = [
         ['ga4', 'Google Analytics 4'], ['matomo', 'Matomo'], ['adobe', 'Adobe Analytics'],
-        ['plausible', 'Plausible'], ['fathom', 'Fathom'], ['hotjar', 'Hotjar'], ['clarity', 'Microsoft Clarity']
+        ['plausible', 'Plausible'], ['fathom', 'Fathom'], ['hotjar', 'Hotjar'], ['clarity', 'Microsoft Clarity'],
+        ['other', 'Other']
     ];
     var ADVERTISING = [
         ['google_ads', 'Google Ads'], ['meta_pixel', 'Meta Pixel'], ['linkedin', 'LinkedIn Insight Tag'],
         ['tiktok', 'TikTok Pixel'], ['pinterest', 'Pinterest Tag'], ['twitter', 'Twitter/X Pixel'],
-        ['microsoft_ads', 'Microsoft Ads']
+        ['microsoft_ads', 'Microsoft Ads'], ['other', 'Other']
     ];
     var EMBEDS = [
         ['youtube', 'YouTube videos'], ['vimeo', 'Vimeo'], ['google_maps', 'Google Maps'],
         ['facebook_widget', 'Facebook/Instagram widgets'], ['twitter_feed', 'Twitter/X feeds'],
-        ['linkedin_widget', 'LinkedIn widgets'], ['spotify', 'Spotify']
+        ['linkedin_widget', 'LinkedIn widgets'], ['spotify', 'Spotify'], ['other', 'Other']
     ];
     var LIVECHAT = [
-        ['intercom', 'Intercom'], ['zendesk', 'Zendesk'], ['crisp', 'Crisp'], ['tidio', 'Tidio']
+        ['intercom', 'Intercom'], ['zendesk', 'Zendesk'], ['crisp', 'Crisp'], ['tidio', 'Tidio'],
+        ['other', 'Other']
     ];
     var PAYMENTS = [
         ['stripe', 'Stripe'], ['paypal', 'PayPal'], ['braintree', 'Braintree'], ['adyen', 'Adyen'],
         ['nexi', 'Nexi'], ['klarna', 'Klarna'], ['satispay', 'Satispay'], ['apple_pay', 'Apple Pay'],
-        ['google_pay', 'Google Pay']
+        ['google_pay', 'Google Pay'], ['other', 'Other']
     ];
     var CRM = [
         ['mailchimp', 'Mailchimp'], ['hubspot', 'HubSpot'], ['salesforce', 'Salesforce'],
-        ['activecampaign', 'ActiveCampaign'], ['brevo', 'Brevo'], ['klaviyo', 'Klaviyo'], ['mailerlite', 'MailerLite']
+        ['activecampaign', 'ActiveCampaign'], ['brevo', 'Brevo'], ['klaviyo', 'Klaviyo'], ['mailerlite', 'MailerLite'],
+        ['other', 'Other']
     ];
 
     /* Per-service detail map: provider, country, category, cookies, purpose,
@@ -679,7 +682,9 @@
                 advertising: [], programmatic: false,
                 embeds: [],
                 turnstile: false, recaptcha: false, googleFonts: false, fontHosting: 'cdn', cdnProvider: '',
-                liveChat: [], paymentProcessors: [], crm: []
+                liveChat: [], paymentProcessors: [], crm: [],
+                analyticsOther: [], advertisingOther: [], embedsOther: [],
+                liveChatOther: [], paymentProcessorsOther: [], crmOther: []
             },
             step5: {
                 hasTransfers: false, countries: [], dpfCertified: false, sccVersion: '2021'
@@ -839,9 +844,9 @@
         if (s4.googleFonts) {
             ids.push(s4.fontHosting === 'self' ? 'google_fonts_self' : 'google_fonts_cdn');
         }
-// de-dup
+// de-dup and strip the sentinel 'other' value (custom names handled separately)
         return ids.filter(function (v, i) {
-            return ids.indexOf(v) === i;
+            return v !== 'other' && ids.indexOf(v) === i;
         });
     }
 
@@ -982,12 +987,37 @@
 
     function buildCookieTable() {
         var svcs = selectedServices();
-        if (!svcs.length) {
+        var s4 = state.step4;
+
+        // Gather custom "other" service names per group with their implied category
+        var customGroups = [
+            {names: inArr(s4.analytics, 'other') ? (s4.analyticsOther || []).filter(Boolean) : [], cat: 'analytics'},
+            {names: inArr(s4.advertising, 'other') ? (s4.advertisingOther || []).filter(Boolean) : [], cat: 'marketing'},
+            {names: inArr(s4.embeds, 'other') ? (s4.embedsOther || []).filter(Boolean) : [], cat: 'marketing'},
+            {names: inArr(s4.liveChat, 'other') ? (s4.liveChatOther || []).filter(Boolean) : [], cat: 'functional'},
+            {names: inArr(s4.paymentProcessors, 'other') ? (s4.paymentProcessorsOther || []).filter(Boolean) : [], cat: 'functional'},
+            {names: inArr(s4.crm, 'other') ? (s4.crmOther || []).filter(Boolean) : [], cat: 'functional'}
+        ];
+        var hasCustom = customGroups.some(function (g) { return g.names.length > 0; });
+
+        if (!svcs.length && !hasCustom) {
             return '(No third-party services selected — only strictly-necessary first-party cookies apply.)';
         }
         var byCat = {functional: [], analytics: [], marketing: []};
         svcs.forEach(function (s) {
             (byCat[s.category] || byCat.functional).push(s);
+        });
+        // Inject custom services into the appropriate category bucket
+        customGroups.forEach(function (g) {
+            g.names.forEach(function (name) {
+                (byCat[g.cat] || byCat.functional).push({
+                    name: name,
+                    provider: '(provider to be specified)',
+                    cookies: ['(cookies/tech to be specified)'],
+                    purpose: '(purpose to be specified)',
+                    privacyUrl: '(privacy policy URL to be specified)'
+                });
+            });
         });
         var out = [];
         ['functional', 'analytics', 'marketing'].forEach(function (cat) {
@@ -1105,6 +1135,16 @@
         var P = [];
         P.push('You are an expert EU data-protection and consumer-law legal drafter. Draft the following legal document(s) for the website described below, fully compliant with the regulatory framework listed. Write the output in ' + langName + '.');
         P.push('');
+        if (s2.websiteUrl) {
+            P.push('=== PRELIMINARY STEP — WEBSITE ANALYSIS (mandatory before drafting) ===');
+            P.push('Before writing any document, use your web browsing capability to visit and navigate the website at: ' + s2.websiteUrl);
+            P.push('While browsing, examine: the homepage, any product/service pages, checkout or sign-up flows, existing privacy/cookie/terms pages, footer links, cookie banners, and any embedded third-party widgets or scripts you can detect. Use what you observe to:');
+            P.push('1. Verify and supplement the structured data provided below (fill placeholders where you can confirm the real value from the live site).');
+            P.push('2. Identify any additional third-party services, cookies or data-collection practices not explicitly listed.');
+            P.push('3. Ensure the documents accurately reflect the real purpose, tone and scope of the website.');
+            P.push('If the site is unavailable or browsing is not possible in your environment, proceed with the structured data provided and flag any unverified details with a "(unverified — please check)" note.');
+            P.push('');
+        }
         P.push('DOCUMENTS TO PRODUCE: ' + (docs.join(', ') || 'Privacy Policy') + '.');
         P.push('TONE: ' + toneText + '.');
         P.push('CITATIONS: ' + (s7.includeCitations ? 'include the relevant article citation in parentheses after each section heading.' : 'do NOT clutter the body with article numbers; keep it readable.'));
@@ -1378,6 +1418,58 @@
             wrap.appendChild(el('div', {'class': 'wpog-field__hint'}, [opts.hint]));
         }
         wrap.appendChild(fieldError(path));
+        return wrap;
+    }
+
+    function otherServicesPanel(statePath, labelText) {
+        var vals = getPath(state, statePath) || [];
+        if (!vals.length) {
+            vals = [''];
+            setPath(state, statePath, vals);
+        }
+        var wrap = el('div', {'class': 'wpog-other-panel'});
+        wrap.appendChild(el('label', {'class': 'wpog-field__label wpog-other-panel__label'}, [labelText]));
+        var list = el('div', {'class': 'wpog-other-list'});
+
+        function renderRows() {
+            list.innerHTML = '';
+            var current = getPath(state, statePath) || [''];
+            current.forEach(function (v, i) {
+                var inp = el('input', {type: 'text', 'class': 'wpog-input', placeholder: __('Service name', TXT)});
+                inp.value = v || '';
+                inp.addEventListener('input', function () {
+                    var a = getPath(state, statePath) || [];
+                    a[i] = inp.value;
+                    setPath(state, statePath, a);
+                    saveDraft();
+                });
+                var row = el('div', {'class': 'wpog-other-row'}, [inp]);
+                if (current.length > 1) {
+                    var rem = el('button', {type: 'button', 'class': 'button-link wpog-row-remove'}, ['×']);
+                    rem.addEventListener('click', function () {
+                        var a = getPath(state, statePath) || [];
+                        a.splice(i, 1);
+                        setPath(state, statePath, a.length ? a : ['']);
+                        saveDraft();
+                        renderRows();
+                    });
+                    row.appendChild(rem);
+                }
+                list.appendChild(row);
+            });
+        }
+
+        renderRows();
+        var addBtn = el('button', {type: 'button', 'class': 'button-secondary wpog-other-add'}, ['+ ' + __('Add another', TXT)]);
+        addBtn.addEventListener('click', function () {
+            var a = getPath(state, statePath) || [];
+            a.push('');
+            setPath(state, statePath, a);
+            saveDraft();
+            renderRows();
+        });
+        wrap.appendChild(list);
+        wrap.appendChild(addBtn);
         return wrap;
     }
 
@@ -1662,12 +1754,15 @@
                 conditional(inArr(s4.analytics, 'matomo'), function () {
                     return [radioField('step4.matomoHosting', __('Matomo hosting', TXT), [['self', 'Self-hosted'], ['cloud', 'Cloud']], {})];
                 }),
+                inArr(s4.analytics, 'other') ? otherServicesPanel('step4.analyticsOther', __('Other analytics services', TXT)) : null,
                 el('h3', {'class': 'wpog-subhead'}, [__('B — Advertising & Remarketing', TXT)]),
                 chipsField('step4.advertising', __('Advertising platforms', TXT), ADVERTISING, {rerender: true}),
                 toggleField('step4.programmatic', __('Programmatic advertising (DSPs, ad networks)', TXT), {}),
+                inArr(s4.advertising, 'other') ? otherServicesPanel('step4.advertisingOther', __('Other advertising platforms', TXT)) : null,
                 el('h3', {'class': 'wpog-subhead'}, [__('C — Social Media & Embeds', TXT)]),
                 chipsField('step4.embeds', __('Embedded content', TXT), EMBEDS, {rerender: true}),
                 notice('info', __('Each embedded service that loads tracking cookies requires separate user consent. Embedding a player does not transfer your compliance obligations.', TXT)),
+                inArr(s4.embeds, 'other') ? otherServicesPanel('step4.embedsOther', __('Other embedded content', TXT)) : null,
                 el('h3', {'class': 'wpog-subhead'}, [__('D — Functional & Security', TXT)]),
                 toggleField('step4.turnstile', __('Cloudflare Turnstile', TXT), {rerender: true}),
                 toggleField('step4.recaptcha', __('Google reCAPTCHA', TXT), {rerender: true}),
@@ -1677,11 +1772,14 @@
                 }),
                 textField('step4.cdnProvider', __('CDN provider (optional)', TXT), {placeholder: 'e.g. Cloudflare, AWS CloudFront, Fastly'}),
                 chipsField('step4.liveChat', __('Live chat / support widget', TXT), LIVECHAT, {rerender: true}),
+                inArr(s4.liveChat, 'other') ? otherServicesPanel('step4.liveChatOther', __('Other live chat services', TXT)) : null,
                 ecom ? el('h3', {'class': 'wpog-subhead'}, [__('E — Payment Processors', TXT)]) : null,
                 ecom ? chipsField('step4.paymentProcessors', __('Payment processors', TXT), PAYMENTS, {rerender: true}) : null,
+                ecom && inArr(s4.paymentProcessors, 'other') ? otherServicesPanel('step4.paymentProcessorsOther', __('Other payment processors', TXT)) : null,
                 ecom ? notice('info', __('Payment processors typically process card data under PCI DSS. Confirm your PCI DSS scope with your provider.', TXT)) : null,
                 el('h3', {'class': 'wpog-subhead'}, [__('F — CRM & Marketing Automation', TXT)]),
                 chipsField('step4.crm', __('CRM / email platforms', TXT), CRM, {rerender: true}),
+                inArr(s4.crm, 'other') ? otherServicesPanel('step4.crmOther', __('Other CRM / email platforms', TXT)) : null,
                 el('h3', {'class': 'wpog-subhead'}, [__('G — Cookie Category Summary', TXT)]),
                 summary
             ]

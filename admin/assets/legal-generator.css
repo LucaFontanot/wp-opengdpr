@@ -190,7 +190,7 @@
     display: block; width: 100%;
     margin: 0; padding: 18px 20px; white-space: pre-wrap; word-break: break-word;
     font-family: Menlo, Consolas, Monaco, monospace; font-size: 12.5px; line-height: 1.55;
-    color: #e6e6e6; background: transparent;
+    color: #363636; background: transparent;
     border: none; outline: none; resize: vertical;
 }
 .wpog-prompt-output__actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
@@ -251,6 +251,14 @@
 .wpog-save-msg { font-size: 12px; color: #646970; align-self: center; }
 .wpog-empty { color: #646970; font-style: italic; }
 .wpog-saved-item__date { display: block; margin-top: 2px; }
+/* ---- Other-service repeating inputs ------------------------------------ */
+.wpog-other-panel { margin-top: 10px; padding: 12px 14px; background: #f6f7f7; border: 1px solid #e0e0e0; border-radius: 5px; }
+.wpog-other-panel__label { font-size: 12px; color: #50575e; margin-bottom: 8px; }
+.wpog-other-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.wpog-other-row { display: flex; align-items: center; gap: 8px; }
+.wpog-other-row .wpog-input { max-width: 380px; }
+.wpog-other-add { font-size: 12px; }
+
 .wpog-activities { margin-bottom: 12px; }
 .wpog-row-remove { color: #b32d2e; }
 .wpog-generate { margin: 18px 0; }
