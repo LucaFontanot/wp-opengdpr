@@ -119,7 +119,7 @@ class WPOG_CF7_Integration {
             if ( ! empty( $s['checkbox_main_enabled'] ) ) {
                 $label    = WPOG_Form_Consent::main_label();
                 $required = ! empty( $s['checkbox_main_required'] ) ? ' required aria-required="true"' : '';
-                $error    = isset( $s['checkbox_main_error'] ) ? $s['checkbox_main_error'] : '';
+                $error    = WPOG_Settings::string( 'form_privacy_error' );
 
                 $html .= sprintf(
                     '<p class="wpog-consent-field wpog-consent-main">

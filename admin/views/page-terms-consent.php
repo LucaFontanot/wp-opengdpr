@@ -68,33 +68,4 @@ $wc_active = class_exists( 'WooCommerce' );
 </table>
 <?php WPOG_Admin::form_close(); ?>
 
-<hr/>
-<h2><?php esc_html_e( 'Checkbox texts & error messages', 'wp-opengdpr' ); ?></h2>
-<?php WPOG_Admin::form_open( 'terms_texts' ); ?>
-<table class="form-table">
-    <tr><th><?php esc_html_e( 'Terms checkbox label', 'wp-opengdpr' ); ?></th>
-        <td><textarea name="wpog_tc[terms_checkbox_label]" rows="2" class="large-text"><?php echo esc_textarea( $s['terms_checkbox_label'] ); ?></textarea>
-            <p class="description"><?php esc_html_e( 'Placeholders: {terms_url}, {privacy_url}. Links allowed.', 'wp-opengdpr' ); ?></p></td></tr>
-
-    <tr><th><?php esc_html_e( 'Privacy checkbox label', 'wp-opengdpr' ); ?></th>
-        <td><textarea name="wpog_tc[privacy_checkbox_label]" rows="2" class="large-text"><?php echo esc_textarea( $s['privacy_checkbox_label'] ); ?></textarea>
-            <p class="description"><?php esc_html_e( 'Placeholder: {privacy_url}. Links allowed.', 'wp-opengdpr' ); ?></p></td></tr>
-
-    <tr><th><?php esc_html_e( 'Marketing checkbox label', 'wp-opengdpr' ); ?></th>
-        <td><textarea name="wpog_tc[marketing_checkbox_label]" rows="2" class="large-text"><?php echo esc_textarea( $s['marketing_checkbox_label'] ); ?></textarea></td></tr>
-
-    <tr><th><?php esc_html_e( 'Age checkbox label', 'wp-opengdpr' ); ?></th>
-        <td><input type="text" class="large-text" name="wpog_tc[age_checkbox_label]" value="<?php echo esc_attr( $s['age_checkbox_label'] ); ?>" />
-            <p class="description"><?php esc_html_e( 'Placeholder: {min_age}.', 'wp-opengdpr' ); ?></p></td></tr>
-
-    <tr><th><?php esc_html_e( 'Terms error message', 'wp-opengdpr' ); ?></th>
-        <td><input type="text" class="large-text" name="wpog_tc[terms_error_message]" value="<?php echo esc_attr( $s['terms_error_message'] ); ?>" /></td></tr>
-
-    <tr><th><?php esc_html_e( 'Privacy error message', 'wp-opengdpr' ); ?></th>
-        <td><input type="text" class="large-text" name="wpog_tc[privacy_error_message]" value="<?php echo esc_attr( $s['privacy_error_message'] ); ?>" /></td></tr>
-
-    <tr><th><?php esc_html_e( 'Age error message', 'wp-opengdpr' ); ?></th>
-        <td><input type="text" class="large-text" name="wpog_tc[age_error_message]" value="<?php echo esc_attr( $s['age_error_message'] ); ?>" />
-            <p class="description"><?php esc_html_e( 'Placeholder: {min_age}.', 'wp-opengdpr' ); ?></p></td></tr>
-</table>
-<?php WPOG_Admin::form_close(); ?>
+<p class="description"><?php esc_html_e( 'Checkbox labels and error messages are managed centrally in GDPR Settings → Translations.', 'wp-opengdpr' ); ?></p>

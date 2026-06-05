@@ -13,7 +13,7 @@ WPOG_Admin::notice();
 <hr />
 
 <h2><?php esc_html_e( 'Export All Settings', 'wp-opengdpr' ); ?></h2>
-<p><?php esc_html_e( 'Click the button below to download a JSON file containing all plugin settings: General, Banner, Popup, Categories & Cookies, Scripts, Translations and Cookie Policy.', 'wp-opengdpr' ); ?></p>
+<p><?php esc_html_e( 'Click the button below to download a JSON file containing all plugin settings: General, Banner, Popup, Categories & Cookies, Scripts, Translations, Form Consent, Terms & Conditions and Cookie Policy.', 'wp-opengdpr' ); ?></p>
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
     <input type="hidden" name="action" value="wpog_export_settings" />
     <?php wp_nonce_field( WPOG_Admin::NONCE ); ?>

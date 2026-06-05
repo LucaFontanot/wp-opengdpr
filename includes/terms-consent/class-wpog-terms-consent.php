@@ -84,32 +84,28 @@ class WPOG_Terms_Consent {
     /* ---------- resolved labels (exact text recorded as proof) ---------- */
 
     public static function terms_label() {
-        $s = WPOG_Settings::get( 'terms_consent' );
         return str_replace(
             array( '{terms_url}', '{privacy_url}' ),
             array( esc_url( self::terms_url() ), esc_url( self::privacy_url() ) ),
-            (string) $s['terms_checkbox_label']
+            WPOG_Settings::string( 'terms_terms_checkbox_label' )
         );
     }
 
     public static function privacy_label() {
-        $s = WPOG_Settings::get( 'terms_consent' );
         return str_replace(
             '{privacy_url}',
             esc_url( self::privacy_url() ),
-            (string) $s['privacy_checkbox_label']
+            WPOG_Settings::string( 'terms_privacy_checkbox_label' )
         );
     }
 
     public static function marketing_label() {
-        $s = WPOG_Settings::get( 'terms_consent' );
-        return (string) $s['marketing_checkbox_label'];
+        return WPOG_Settings::string( 'terms_marketing_checkbox_label' );
     }
 
     public static function age_label() {
-        $s   = WPOG_Settings::get( 'terms_consent' );
-        $age = absint( $s['minimum_age'] ?? 18 );
-        return str_replace( '{min_age}', (string) $age, (string) $s['age_checkbox_label'] );
+        $age = absint( WPOG_Settings::get( 'terms_consent', 'minimum_age', 18 ) );
+        return str_replace( '{min_age}', (string) $age, WPOG_Settings::string( 'terms_age_checkbox_label' ) );
     }
 
     /* ---------- Terms document text + hash ---------- */

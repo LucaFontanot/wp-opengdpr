@@ -100,6 +100,12 @@ class WPOG_Core {
         WPOG_Form_Consent_Logger::install_table();
         WPOG_Terms_Consent_Logger::install_table();
         WPOG_Legal_Generator::install_table();
+
+        // 1.5.1: migrate module text strings into the centralized Translations system.
+        if ( version_compare( (string) $current, '1.5.1', '<' ) ) {
+            self::migrate_module_texts_to_translations();
+        }
+
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
 
         // 1.5.0: flush rewrite rules so the My Account privacy endpoint
@@ -107,6 +113,66 @@ class WPOG_Core {
         // Settings → Permalinks save. Scheduled late on init so add_endpoint()
         // has already registered the endpoint before flush_rewrite_rules() runs.
         add_action( 'init', 'flush_rewrite_rules', 9999 );
+    }
+
+    /**
+     * Migrate user-facing checkbox labels and error messages from the old
+     * module-specific settings (wpog_form_consent, wpog_terms_consent) into
+     * the centralized wpog_translations option. Only copies values that differ
+     * from the English default — admin-customized texts are preserved.
+     */
+    private static function migrate_module_texts_to_translations() {
+        $defaults     = WPOG_Settings::default_strings();
+        $translations = get_option( 'wpog_translations', array() );
+        if ( ! is_array( $translations ) ) {
+            $translations = array();
+        }
+
+        // Form Privacy Consent module.
+        $default_fc = WPOG_Settings::defaults( 'form_consent' );
+        $fc         = get_option( 'wpog_form_consent', array() );
+        if ( is_array( $fc ) ) {
+            $map = array(
+                'checkbox_main_label'      => 'form_privacy_checkbox_label',
+                'checkbox_main_error'      => 'form_privacy_error',
+                'checkbox_marketing_label' => 'form_marketing_checkbox_label',
+            );
+            foreach ( $map as $old_key => $new_key ) {
+                $val = isset( $fc[ $old_key ] ) ? (string) $fc[ $old_key ] : '';
+                $def = isset( $default_fc[ $old_key ] ) ? (string) $default_fc[ $old_key ] : '';
+                // Only migrate if the value was customized (differs from default)
+                // and the Translations slot is still empty.
+                if ( '' !== $val && $val !== $def && empty( $translations[ $new_key ] ) ) {
+                    $translations[ $new_key ] = sanitize_textarea_field( $val );
+                }
+            }
+        }
+
+        // Terms & Conditions module.
+        $default_tc = WPOG_Settings::defaults( 'terms_consent' );
+        $tc         = get_option( 'wpog_terms_consent', array() );
+        if ( is_array( $tc ) ) {
+            $map = array(
+                'terms_checkbox_label'     => 'terms_terms_checkbox_label',
+                'privacy_checkbox_label'   => 'terms_privacy_checkbox_label',
+                'marketing_checkbox_label' => 'terms_marketing_checkbox_label',
+                'age_checkbox_label'       => 'terms_age_checkbox_label',
+                'terms_error_message'      => 'terms_terms_error_message',
+                'privacy_error_message'    => 'terms_privacy_error_message',
+                'age_error_message'        => 'terms_age_error_message',
+            );
+            foreach ( $map as $old_key => $new_key ) {
+                $val = isset( $tc[ $old_key ] ) ? (string) $tc[ $old_key ] : '';
+                $def = isset( $default_tc[ $old_key ] ) ? (string) $default_tc[ $old_key ] : '';
+                if ( '' !== $val && $val !== $def && empty( $translations[ $new_key ] ) ) {
+                    $translations[ $new_key ] = sanitize_textarea_field( $val );
+                }
+            }
+        }
+
+        if ( ! empty( $translations ) ) {
+            update_option( 'wpog_translations', $translations );
+        }
     }
 
     public static function deactivate() {

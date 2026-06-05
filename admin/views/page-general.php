@@ -32,18 +32,6 @@ $g = WPOG_Settings::get( 'general' );
             <p class="description"><?php esc_html_e( 'Linked in the cookie banner footer. Overridden by the page selection above when a page is chosen.', 'wp-opengdpr' ); ?></p>
         </td></tr>
 
-    <tr><th><?php esc_html_e( 'Terms &amp; Conditions URL', 'wp-opengdpr' ); ?></th>
-        <td>
-            <?php wp_dropdown_pages( array(
-                'name'              => 'wpog[terms_page_id]',
-                'selected'          => (int) $g['terms_page_id'],
-                'show_option_none'  => __( '— Select a page —', 'wp-opengdpr' ),
-                'option_none_value' => 0,
-            ) ); ?>
-            <p class="description" style="margin-bottom:6px;"><?php esc_html_e( 'Select a page to auto-resolve its URL, or leave empty and enter the URL manually below.', 'wp-opengdpr' ); ?></p>
-            <input type="url" class="regular-text" name="wpog[terms_url]" value="<?php echo esc_attr( $g['terms_url'] ); ?>" placeholder="https://" />
-            <p class="description"><?php esc_html_e( 'Used as the {terms_url} placeholder in consent checkbox labels. Overridden by the page selection above when a page is chosen.', 'wp-opengdpr' ); ?></p>
-        </td></tr>
 </table>
 <h2><?php esc_html_e( 'Shortcode', 'wp-opengdpr' ); ?></h2>
 <p><?php esc_html_e( 'Use the shortcode below anywhere in your content to add a link/button that opens the cookie settings.', 'wp-opengdpr' ); ?></p>

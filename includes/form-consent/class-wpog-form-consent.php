@@ -62,13 +62,11 @@ class WPOG_Form_Consent {
      * This is the EXACT text recorded as proof of consent.
      */
     public static function main_label() {
-        $s           = WPOG_Settings::get( 'form_consent' );
         $privacy_url = (string) WPOG_Settings::get( 'general', 'privacy_url', '' );
-        return str_replace( '{privacy_url}', esc_url( $privacy_url ), (string) $s['checkbox_main_label'] );
+        return str_replace( '{privacy_url}', esc_url( $privacy_url ), WPOG_Settings::string( 'form_privacy_checkbox_label' ) );
     }
 
     public static function marketing_label() {
-        $s = WPOG_Settings::get( 'form_consent' );
-        return (string) $s['checkbox_marketing_label'];
+        return WPOG_Settings::string( 'form_marketing_checkbox_label' );
     }
 }

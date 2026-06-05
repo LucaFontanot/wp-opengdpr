@@ -172,14 +172,14 @@ class WPOG_WooCommerce_Integration {
 
         if ( ! empty( $s['require_terms_acceptance'] ) && ! self::posted( self::FIELD_TERMS ) ) {
             wc_add_notice(
-                esc_html( $s['terms_error_message'] ?? __( 'You must accept the Terms & Conditions to complete your order.', 'wp-opengdpr' ) ),
+                esc_html( WPOG_Settings::string( 'terms_terms_error_message' ) ),
                 'error'
             );
         }
 
         if ( ! empty( $s['require_privacy_acceptance'] ) && ! self::posted( self::FIELD_PRIVACY ) ) {
             wc_add_notice(
-                esc_html( $s['privacy_error_message'] ?? __( 'You must accept the Privacy Policy to complete your order.', 'wp-opengdpr' ) ),
+                esc_html( WPOG_Settings::string( 'terms_privacy_error_message' ) ),
                 'error'
             );
         }
@@ -189,7 +189,7 @@ class WPOG_WooCommerce_Integration {
             $message = str_replace(
                 '{min_age}',
                 (string) $min_age,
-                $s['age_error_message'] ?? __( 'You must be at least {min_age} years old to purchase on our site.', 'wp-opengdpr' )
+                WPOG_Settings::string( 'terms_age_error_message' )
             );
             wc_add_notice( esc_html( $message ), 'error' );
         }

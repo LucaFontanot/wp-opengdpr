@@ -108,9 +108,7 @@ class WPOG_WPForms_Integration {
             return;
         }
 
-        $message = isset( $s['checkbox_main_error'] ) && '' !== $s['checkbox_main_error']
-            ? $s['checkbox_main_error']
-            : __( 'You must accept the privacy policy to send your message.', 'wp-opengdpr' );
+        $message = WPOG_Settings::string( 'form_privacy_error' );
 
         $form_id = $form_data['id'] ?? 0;
         wpforms()->process->errors[ $form_id ]['header'] = esc_html( $message );

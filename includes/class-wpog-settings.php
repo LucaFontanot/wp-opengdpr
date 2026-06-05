@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.5.0';
+    const DB_VERSION = '1.5.1';
 
     public static function defaults( $group ) {
         $defaults = array(
@@ -21,8 +21,6 @@ class WPOG_Settings {
                 'privacy_page_id'      => 0,
                 'cookie_url'           => '',
                 'cookie_page_id'       => 0,
-                'terms_url'            => '',
-                'terms_page_id'        => 0,
                 'eu_only'              => 0,
                 'log_enabled'          => 1,
                 'anonymize_ip'         => 1,
@@ -234,6 +232,22 @@ class WPOG_Settings {
             'footer_reopen_link'     => 'Cookie Settings',
             'fab_aria_label'         => 'Open Cookie Settings',
             'shortcode_btn_label'    => 'Cookie Settings',
+
+            // Form Privacy Consent — checkbox labels & errors.
+            'form_privacy_checkbox_label'   => 'I have read and accept the <a href="{privacy_url}" target="_blank" rel="noopener">Privacy Policy</a> and consent to the processing of my personal data.',
+            'form_privacy_error'            => 'You must accept the privacy policy to send your message.',
+            'form_marketing_checkbox_label' => 'I consent to receive commercial communications and updates.',
+
+            // Terms & Conditions — checkbox labels.
+            'terms_terms_checkbox_label'     => 'I have read and accept the <a href="{terms_url}" target="_blank" rel="noopener">Terms & Conditions of Sale</a>.',
+            'terms_privacy_checkbox_label'   => 'I have read and accept the <a href="{privacy_url}" target="_blank" rel="noopener">Privacy Policy</a> and consent to the processing of my data to fulfil my order.',
+            'terms_marketing_checkbox_label' => 'I would like to receive offers and updates by email.',
+            'terms_age_checkbox_label'       => 'I confirm that I am at least {min_age} years old.',
+
+            // Terms & Conditions — error messages.
+            'terms_terms_error_message'   => 'You must accept the Terms & Conditions to complete your order.',
+            'terms_privacy_error_message' => 'You must accept the Privacy Policy to complete your order.',
+            'terms_age_error_message'     => 'You must be at least {min_age} years old to purchase on our site.',
         );
     }
 

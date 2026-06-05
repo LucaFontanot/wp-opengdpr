@@ -115,7 +115,7 @@ class WPOG_Terms_Registration {
         if ( ! empty( $s['require_privacy_acceptance'] ) && ! self::posted( self::FIELD_PRIVACY ) ) {
             $errors->add(
                 'wpog_privacy_required',
-                esc_html( $s['privacy_error_message'] ?? __( 'You must accept the Privacy Policy to create an account.', 'wp-opengdpr' ) )
+                esc_html( WPOG_Settings::string( 'terms_privacy_error_message' ) )
             );
         }
 

@@ -110,7 +110,6 @@ class WPOG_Admin {
         // 'wpog-privacy' as first slug overrides the auto-generated duplicate entry.
         $privacy_pages = array(
             'wpog-privacy'           => __( 'Privacy Settings', 'wp-opengdpr' ),
-            'wpog-form-texts'        => __( 'Texts & Labels', 'wp-opengdpr' ),
             'wpog-form-integrations' => __( 'Form Integrations', 'wp-opengdpr' ),
             'wpog-form-logs'         => __( 'Form Consent Logs', 'wp-opengdpr' ),
         );
@@ -160,7 +159,6 @@ class WPOG_Admin {
             // Privacy Consent menu ('wpog-privacy' is the top-level → shows privacy settings page)
             'wpog-privacy'           => 'page-form-consent.php',
             'wpog-form-consent'      => 'page-form-consent.php',
-            'wpog-form-texts'        => 'page-form-texts.php',
             'wpog-form-integrations' => 'page-form-integrations.php',
             'wpog-form-logs'         => 'page-form-logs.php',
             // Terms & Conditions menu ('wpog-terms' is the top-level → general settings)
@@ -193,17 +191,13 @@ class WPOG_Admin {
                 $in              = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 $privacy_page_id = max( 0, (int) ( $in['privacy_page_id'] ?? 0 ) );
                 $cookie_page_id  = max( 0, (int) ( $in['cookie_page_id'] ?? 0 ) );
-                $terms_page_id   = max( 0, (int) ( $in['terms_page_id'] ?? 0 ) );
                 $privacy_url     = $privacy_page_id > 0 ? get_permalink( $privacy_page_id ) : esc_url_raw( $in['privacy_url'] ?? '' );
                 $cookie_url      = $cookie_page_id  > 0 ? get_permalink( $cookie_page_id )  : esc_url_raw( $in['cookie_url']  ?? '' );
-                $terms_url       = $terms_page_id   > 0 ? get_permalink( $terms_page_id )   : esc_url_raw( $in['terms_url']   ?? '' );
                 WPOG_Settings::update( 'general', array(
                     'privacy_url'     => $privacy_url     ?: '',
                     'privacy_page_id' => $privacy_page_id,
                     'cookie_url'      => $cookie_url      ?: '',
                     'cookie_page_id'  => $cookie_page_id,
-                    'terms_url'       => $terms_url       ?: '',
-                    'terms_page_id'   => $terms_page_id,
                 ) );
                 break;
 
@@ -450,7 +444,7 @@ class WPOG_Admin {
                     $json = file_get_contents( $_FILES['wpog_settings_file']['tmp_name'] );
                     $data = json_decode( $json, true );
                     if ( is_array( $data ) ) {
-                        foreach ( array( 'general', 'banner', 'popup', 'categories', 'scripts', 'translations' ) as $group ) {
+                        foreach ( array( 'general', 'banner', 'popup', 'categories', 'scripts', 'translations', 'form_consent', 'terms_consent' ) as $group ) {
                             if ( isset( $data[ $group ] ) && is_array( $data[ $group ] ) ) {
                                 update_option( 'wpog_' . $group, $data[ $group ] );
                             }
@@ -476,20 +470,10 @@ class WPOG_Admin {
                     'block_submit_without_consent' => ! empty( $in['block_submit_without_consent'] ) ? 1 : 0,
                     'log_enabled'                  => ! empty( $in['log_enabled'] ) ? 1 : 0,
                     'log_retention_days'           => max( 0, (int) ( $in['log_retention_days'] ?? 365 ) ),
-                ) );
-                break;
-
-            case 'form_texts':
-                $in           = wp_unslash( (array) ( $_POST['wpog_fc'] ?? array() ) );
-                $allowed_tags = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
-                WPOG_Settings::update( 'form_consent', array(
-                    'checkbox_main_enabled'       => ! empty( $in['checkbox_main_enabled'] ) ? 1 : 0,
-                    'checkbox_main_required'      => ! empty( $in['checkbox_main_required'] ) ? 1 : 0,
-                    'checkbox_main_label'         => wp_kses( $in['checkbox_main_label'] ?? '', $allowed_tags ),
-                    'checkbox_main_error'         => sanitize_text_field( $in['checkbox_main_error'] ?? '' ),
-                    'checkbox_marketing_enabled'  => ! empty( $in['checkbox_marketing_enabled'] ) ? 1 : 0,
-                    'checkbox_marketing_required' => ! empty( $in['checkbox_marketing_required'] ) ? 1 : 0,
-                    'checkbox_marketing_label'    => wp_kses( $in['checkbox_marketing_label'] ?? '', $allowed_tags ),
+                    'checkbox_main_enabled'        => ! empty( $in['checkbox_main_enabled'] ) ? 1 : 0,
+                    'checkbox_main_required'       => ! empty( $in['checkbox_main_required'] ) ? 1 : 0,
+                    'checkbox_marketing_enabled'   => ! empty( $in['checkbox_marketing_enabled'] ) ? 1 : 0,
+                    'checkbox_marketing_required'  => ! empty( $in['checkbox_marketing_required'] ) ? 1 : 0,
                 ) );
                 break;
 
@@ -529,20 +513,6 @@ class WPOG_Admin {
                     'require_age_verification'   => ! empty( $in['require_age_verification'] ) ? 1 : 0,
                     'minimum_age'                => max( 0, (int) ( $in['minimum_age'] ?? 18 ) ),
                     'log_retention_days'         => max( 0, (int) ( $in['log_retention_days'] ?? 730 ) ),
-                ) );
-                break;
-
-            case 'terms_texts':
-                $in           = wp_unslash( (array) ( $_POST['wpog_tc'] ?? array() ) );
-                $allowed_tags = array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) );
-                WPOG_Settings::update( 'terms_consent', array(
-                    'terms_checkbox_label'     => wp_kses( $in['terms_checkbox_label'] ?? '', $allowed_tags ),
-                    'privacy_checkbox_label'   => wp_kses( $in['privacy_checkbox_label'] ?? '', $allowed_tags ),
-                    'marketing_checkbox_label' => wp_kses( $in['marketing_checkbox_label'] ?? '', $allowed_tags ),
-                    'age_checkbox_label'       => sanitize_text_field( $in['age_checkbox_label'] ?? '' ),
-                    'terms_error_message'      => sanitize_text_field( $in['terms_error_message'] ?? '' ),
-                    'privacy_error_message'    => sanitize_text_field( $in['privacy_error_message'] ?? '' ),
-                    'age_error_message'        => sanitize_text_field( $in['age_error_message'] ?? '' ),
                 ) );
                 break;
 
@@ -755,7 +725,7 @@ class WPOG_Admin {
         }
         check_admin_referer( self::NONCE );
 
-        $groups = array( 'general', 'banner', 'popup', 'categories', 'scripts', 'translations' );
+        $groups = array( 'general', 'banner', 'popup', 'categories', 'scripts', 'translations', 'form_consent', 'terms_consent' );
         $data   = array();
         foreach ( $groups as $group ) {
             $data[ $group ] = get_option( 'wpog_' . $group, array() );
