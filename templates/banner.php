@@ -10,10 +10,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 $general = WPOG_Settings::get( 'general' );
 $banner  = WPOG_Settings::get( 'banner' );
 $show    = WPOG_Consent::should_show_banner();
-$pos     = $banner['position'] === 'top' ? 'wpog-pos-top' : 'wpog-pos-bottom';
-$anim    = 'wpog-anim-' . sanitize_html_class( $banner['animation'] );
+$pos_raw = $banner['position'];
+$is_box  = ! in_array( $pos_raw, array( 'top', 'bottom' ), true );
+$pos_cls = 'wpog-pos-' . sanitize_html_class( $pos_raw );
+
+// Box positions always use fade animation (slide conflicts with transform centering).
+if ( $is_box ) {
+    $anim = $banner['animation'] === 'none' ? '' : 'wpog-anim-fade';
+} else {
+    $anim = 'wpog-anim-' . sanitize_html_class( $banner['animation'] );
+}
+
+$box_cls = $is_box ? ' wpog-banner--box' : '';
+$overlay = ! empty( $banner['overlay'] );
 ?>
-<div id="wpog-banner" class="wpog-banner <?php echo esc_attr( $pos . ' ' . $anim ); ?>"
+<?php if ( $overlay ) : ?>
+<div id="wpog-banner-overlay" class="wpog-banner-overlay" <?php echo $show ? '' : 'hidden'; ?>></div>
+<?php endif; ?>
+<div id="wpog-banner" class="wpog-banner <?php echo esc_attr( $pos_cls . $box_cls . ' ' . $anim ); ?>"
      role="dialog" aria-live="polite" aria-label="<?php echo esc_attr( WPOG_Settings::string( 'popup_title' ) ); ?>"
      <?php echo $show ? '' : 'hidden'; ?>>
     <div class="wpog-banner-inner">

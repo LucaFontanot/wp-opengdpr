@@ -9,16 +9,68 @@
 .wpog-btn{padding:10px 16px;border:0;cursor:pointer;font-weight:600;line-height:1;}
 .wpog-btn:focus{outline:2px solid #000;outline-offset:2px;}
 .wpog-banner-logo{max-height:40px;width:auto;}
+
+/* Full-width positions */
+.wpog-pos-top{top:0;bottom:auto;}
+.wpog-pos-bottom{top:auto;bottom:0;}
+
+/* Box variant — floating card instead of full-width bar */
+.wpog-banner--box{left:auto;right:auto;bottom:auto;top:auto;max-width:420px;width:calc(100% - 32px);border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.2);}
+.wpog-banner--box .wpog-banner-inner{flex-direction:column;align-items:flex-start;gap:12px;}
+.wpog-banner--box .wpog-banner-text{flex:1 1 auto;min-width:0;}
+.wpog-banner--box .wpog-banner-actions{width:100%;justify-content:flex-end;}
+
+/* Box position placements */
+.wpog-pos-center{top:50%;left:50%;transform:translate(-50%,-50%);}
+.wpog-pos-left{top:50%;left:16px;transform:translateY(-50%);}
+.wpog-pos-right{top:50%;right:16px;transform:translateY(-50%);}
+.wpog-pos-top-left{top:16px;left:16px;}
+.wpog-pos-top-right{top:16px;right:16px;}
+.wpog-pos-bottom-left{bottom:16px;left:16px;}
+.wpog-pos-bottom-right{bottom:16px;right:16px;}
+
+/* Animations */
 .wpog-anim-slide{transform:translateY(100%);animation:wpog-slide-in .35s ease forwards;}
 .wpog-pos-top.wpog-anim-slide{transform:translateY(-100%);animation:wpog-slide-in-top .35s ease forwards;}
 .wpog-anim-fade{opacity:0;animation:wpog-fade-in .35s ease forwards;}
+.wpog-banner--box.wpog-anim-fade{opacity:0;animation:wpog-scale-in .3s ease forwards;}
+
 @keyframes wpog-slide-in{to{transform:translateY(0);}}
 @keyframes wpog-slide-in-top{to{transform:translateY(0);}}
 @keyframes wpog-fade-in{to{opacity:1;}}
-@media (max-width:600px){.wpog-banner-actions{width:100%;}.wpog-banner-actions .wpog-btn{flex:1 1 auto;}}
+@keyframes wpog-scale-in{to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+
+/* Box positions at corners have simpler animation — just fade + slight offset */
+.wpog-pos-left.wpog-anim-fade,
+.wpog-pos-right.wpog-anim-fade{animation:wpog-fade-slide-x .3s ease forwards;}
+.wpog-pos-top-left.wpog-anim-fade,
+.wpog-pos-bottom-left.wpog-anim-fade{animation:wpog-fade-slide-x-left .3s ease forwards;}
+.wpog-pos-top-right.wpog-anim-fade,
+.wpog-pos-bottom-right.wpog-anim-fade{animation:wpog-fade-slide-x-right .3s ease forwards;}
+
+@keyframes wpog-fade-slide-x{from{opacity:0;transform:translateY(-50%) translateX(16px);}to{opacity:1;transform:translateY(-50%) translateX(0);}}
+@keyframes wpog-fade-slide-x-left{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+@keyframes wpog-fade-slide-x-right{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:translateX(0);}}
+
+/* Overlay behind banner */
+.wpog-banner-overlay{position:fixed;inset:0;z-index:99998;}
+.wpog-banner-overlay[hidden]{display:none;}
+
+@media (max-width:600px){
+    .wpog-banner-actions{width:100%;}.wpog-banner-actions .wpog-btn{flex:1 1 auto;}
+    .wpog-banner--box{max-width:none;width:calc(100% - 16px);margin:8px;}
+    /* Stack box positions to bottom on small screens */
+    .wpog-pos-center,
+    .wpog-pos-left,
+    .wpog-pos-right{top:auto;bottom:8px;left:8px;right:8px;transform:none;}
+    .wpog-pos-top-left,
+    .wpog-pos-top-right{top:8px;}
+    .wpog-pos-bottom-left,
+    .wpog-pos-bottom-right{bottom:8px;}
+}
 
 /* Floating Action Button */
-.wpog-fab{position:fixed;z-index:99998;width:48px;height:48px;border-radius:50%;border:0;cursor:pointer;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.3);transition:transform .2s,box-shadow .2s;padding:0;}
+.wpog-fab{position:fixed;z-index:99997;width:48px;height:48px;border-radius:50%;border:0;cursor:pointer;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.3);transition:transform .2s,box-shadow .2s;padding:0;}
 .wpog-fab:hover{transform:scale(1.12);box-shadow:0 4px 18px rgba(0,0,0,.35);}
 .wpog-fab:focus{outline:2px solid #000;outline-offset:3px;}
 .wpog-fab[hidden]{display:none;}

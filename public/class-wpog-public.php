@@ -82,6 +82,8 @@ class WPOG_Public {
         $css = "
         .wpog-banner{background:{$b['bg_color']};color:{$b['text_color']};font-size:{$b['font_size']}px;}
         .wpog-banner.wpog-pos-top{top:0;bottom:auto;}
+        .wpog-banner.wpog-pos-bottom{top:auto;bottom:0;}
+        .wpog-banner-overlay{background:{$p['overlay_color']};}
         .wpog-btn{border-radius:{$b['border_radius']}px;font-size:{$b['font_size']}px;}
         .wpog-btn-primary{background:{$b['primary_bg']};color:{$b['primary_text']};}
         .wpog-btn-secondary{background:{$b['secondary_bg']};color:{$b['secondary_text']};}

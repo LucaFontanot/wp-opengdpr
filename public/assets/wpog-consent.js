@@ -3,7 +3,7 @@
     'use strict';
 
     var D = window.WPOG_DATA || {};
-    var BANNER, POPUP, FAB;
+    var BANNER, POPUP, FAB, BANNER_OVERLAY;
 
     function uuid() {
         if (window.crypto && crypto.randomUUID) { return crypto.randomUUID(); }
@@ -95,8 +95,8 @@
         });
     }
 
-    function showBanner() { if (BANNER) { BANNER.hidden = false; hideFab(); } }
-    function hideBanner() { if (BANNER) { BANNER.hidden = true; } }
+    function showBanner() { if (BANNER) { BANNER.hidden = false; } if (BANNER_OVERLAY) { BANNER_OVERLAY.hidden = false; } hideFab(); }
+    function hideBanner() { if (BANNER) { BANNER.hidden = true; } if (BANNER_OVERLAY) { BANNER_OVERLAY.hidden = true; } }
     function showPopup()  { if (POPUP)  { POPUP.hidden  = false; } }
     function hidePopup()  { if (POPUP)  { POPUP.hidden  = true;  } }
     function showFab()    { if (FAB)    { FAB.hidden     = false; } }
@@ -167,6 +167,7 @@
         BANNER = document.getElementById('wpog-banner');
         POPUP  = document.getElementById('wpog-popup-overlay');
         FAB    = document.getElementById('wpog-fab');
+        BANNER_OVERLAY = document.getElementById('wpog-banner-overlay');
         bind(BANNER);
         bind(POPUP);
         bindDocument();

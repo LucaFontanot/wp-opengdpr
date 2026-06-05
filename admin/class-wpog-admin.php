@@ -234,7 +234,7 @@ class WPOG_Admin {
             case 'banner':
                 $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
                 WPOG_Settings::replace( 'banner', array(
-                    'position'      => in_array( $in['position'] ?? 'bottom', array( 'top', 'bottom' ), true ) ? $in['position'] : 'bottom',
+                    'position'      => in_array( $in['position'] ?? 'bottom', array( 'top', 'bottom', 'center', 'left', 'right', 'bottom-left', 'bottom-right', 'top-left', 'top-right' ), true ) ? $in['position'] : 'bottom',
                     'bg_color'      => sanitize_hex_color( $in['bg_color'] ?? '#ffffff' ),
                     'text_color'    => sanitize_hex_color( $in['text_color'] ?? '#333333' ),
                     'primary_bg'    => sanitize_hex_color( $in['primary_bg'] ?? '#0073aa' ),

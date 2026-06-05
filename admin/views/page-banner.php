@@ -7,8 +7,21 @@ $b = WPOG_Settings::get( 'banner' );
 <table class="form-table">
     <tr><th><?php esc_html_e( 'Position', 'wp-opengdpr' ); ?></th>
         <td><select name="wpog[position]">
-            <option value="bottom" <?php selected( $b['position'], 'bottom' ); ?>><?php esc_html_e( 'Bottom', 'wp-opengdpr' ); ?></option>
-            <option value="top" <?php selected( $b['position'], 'top' ); ?>><?php esc_html_e( 'Top', 'wp-opengdpr' ); ?></option>
+            <?php
+            $positions = array(
+                'bottom'       => __( 'Bottom (full width)', 'wp-opengdpr' ),
+                'top'          => __( 'Top (full width)', 'wp-opengdpr' ),
+                'center'       => __( 'Center', 'wp-opengdpr' ),
+                'left'         => __( 'Left', 'wp-opengdpr' ),
+                'right'        => __( 'Right', 'wp-opengdpr' ),
+                'bottom-left'  => __( 'Bottom Left', 'wp-opengdpr' ),
+                'bottom-right' => __( 'Bottom Right', 'wp-opengdpr' ),
+                'top-left'     => __( 'Top Left', 'wp-opengdpr' ),
+                'top-right'    => __( 'Top Right', 'wp-opengdpr' ),
+            );
+            foreach ( $positions as $val => $label ) : ?>
+                <option value="<?php echo esc_attr( $val ); ?>" <?php selected( $b['position'], $val ); ?>><?php echo esc_html( $label ); ?></option>
+            <?php endforeach; ?>
         </select></td></tr>
     <tr><th><?php esc_html_e( 'Animation', 'wp-opengdpr' ); ?></th>
         <td><select name="wpog[animation]">
@@ -33,8 +46,8 @@ $b = WPOG_Settings::get( 'banner' );
         <td><input type="number" min="0" name="wpog[border_radius]" value="<?php echo esc_attr( $b['border_radius'] ); ?>" /></td></tr>
     <tr><th><?php esc_html_e( 'Font size (px)', 'wp-opengdpr' ); ?></th>
         <td><input type="number" min="8" name="wpog[font_size]" value="<?php echo esc_attr( $b['font_size'] ); ?>" /></td></tr>
-    <tr><th><?php esc_html_e( 'Overlay background', 'wp-opengdpr' ); ?></th>
-        <td><label><input type="checkbox" name="wpog[overlay]" value="1" <?php checked( $b['overlay'] ); ?> /></label></td></tr>
+    <tr><th><?php esc_html_e( 'Interaction overlay', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog[overlay]" value="1" <?php checked( $b['overlay'] ); ?> /> <?php esc_html_e( 'Add a semi-transparent overlay between the page and the banner to make it clear the user must choose before continuing.', 'wp-opengdpr' ); ?></label></td></tr>
     <tr><th><?php esc_html_e( 'Logo URL', 'wp-opengdpr' ); ?></th>
         <td><input type="url" class="regular-text wpog-media" name="wpog[logo]" value="<?php echo esc_attr( $b['logo'] ); ?>" />
         <button type="button" class="button wpog-media-pick"><?php esc_html_e( 'Choose image', 'wp-opengdpr' ); ?></button></td></tr>
