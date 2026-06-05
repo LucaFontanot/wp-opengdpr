@@ -19,6 +19,26 @@ $labels = array(
     'analytics'  => array( 'popup_analytics_label', 'popup_analytics_desc' ),
     'marketing'  => array( 'popup_marketing_label', 'popup_marketing_desc' ),
 );
+
+// Compute which categories have blocker rules.
+$blocker_rules = WPOG_Domain_Blocker::all();
+$blocker_cats  = array();
+foreach ( $blocker_rules as $rule ) {
+    if ( ! empty( $rule['active'] ) && ! empty( $rule['category'] ) ) {
+        $blocker_cats[ $rule['category'] ] = true;
+    }
+}
+
+// Compute which categories have custom scripts.
+$scripts_data = WPOG_Settings::get( 'scripts' );
+$script_cats  = array();
+if ( is_array( $scripts_data ) ) {
+    foreach ( $scripts_data as $script ) {
+        if ( ! empty( $script['active'] ) && ! empty( $script['category'] ) ) {
+            $script_cats[ $script['category'] ] = true;
+        }
+    }
+}
 ?>
 <div id="wpog-popup-overlay" class="wpog-popup-overlay" hidden>
     <div id="wpog-popup" class="wpog-popup" role="dialog" aria-modal="true"
@@ -33,6 +53,16 @@ $labels = array(
                 $desc  = WPOG_Settings::string( $strings[1] );
                 $disabled = ( 'necessary' === $key );
                 $checked  = $disabled ? true : ! empty( $current[ $key ] );
+
+                // Skip categories that have no cookies, no blocker rules,
+                // and no custom scripts — they add no value for the user.
+                // Necessary is always shown.
+                if ( ! $disabled
+                    && empty( $cats[ $key ]['cookies'] )
+                    && empty( $blocker_cats[ $key ] )
+                    && empty( $script_cats[ $key ] ) ) {
+                    continue;
+                }
             ?>
             <div class="wpog-category">
                 <div class="wpog-category-head">
