@@ -1,6 +1,51 @@
 (function ($) {
     'use strict';
 
+    /** ── Cookie DB autocomplete ────────────────────────────────────── */
+    function wpogCookieAutocomplete($input) {
+        if (!window.wpogCookieDB || !wpogCookieDB.hasData) return;
+
+        $input.autocomplete({
+            source: function (request, response) {
+                $.ajax({
+                    url: wpogCookieDB.autocompleteUrl,
+                    data: { s: request.term },
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader('X-WP-Nonce', wpogCookieDB.nonce);
+                    },
+                    success: function (data) {
+                        response($.map(data, function (item) {
+                            return {
+                                label: item.cookie_name + (item.platform ? ' — ' + item.platform : ''),
+                                value: item.cookie_name,
+                                item: item
+                            };
+                        }));
+                    }
+                });
+            },
+            minLength: 2,
+            select: function (event, ui) {
+                var $row = $(this).closest('tr');
+                var item = ui.item.item;
+                // Autofill the row fields if they're empty.
+                var $inputs = $row.find('input');
+                // $inputs[0]=name, [1]=provider, [2]=duration, [3]=purpose, [4]=privacy
+                if (item.platform && !$inputs.eq(1).val())         $inputs.eq(1).val(item.platform);
+                if (item.retention && !$inputs.eq(2).val())        $inputs.eq(2).val(item.retention);
+                if (item.description && !$inputs.eq(3).val())      $inputs.eq(3).val(item.description);
+                if (item.privacy_url && !$inputs.eq(4).val())      $inputs.eq(4).val(item.privacy_url);
+            }
+        });
+    }
+
+    // Attach to existing cookie name inputs.
+    function wpogInitAutocomplete() {
+        $('.wpog-cookies-table tbody input[name*="[name]"]').each(function () {
+            wpogCookieAutocomplete($(this));
+        });
+    }
+
     $(function () {
         // Sync TinyMCE editors before form submission
         $(document).on('submit', 'form', function () {
@@ -34,7 +79,10 @@
                 row += '<td><input type="' + (f === 'privacy' ? 'url' : 'text') + '" name="wpog[' + cat + '][cookies][' + i + '][' + f + ']" /></td>';
             });
             row += '<td><button type="button" class="button wpog-row-del">&times;</button></td></tr>';
-            $btn.closest('.inside').find('table.wpog-cookies-table tbody').append(row);
+            var $row = $(row);
+            $btn.closest('.inside').find('table.wpog-cookies-table tbody').append($row);
+            // Attach autocomplete to the new name field.
+            wpogCookieAutocomplete($row.find('input[name*="[name]"]'));
             $btn.data('index', i + 1);
         });
         $(document).on('click', '.wpog-row-del,.wpog-script-del,.wpog-blocker-del', function () {
@@ -86,13 +134,28 @@
             $btn.data('index', i + 1);
         });
 
-        // Detection dialogs — open
+        // Detection dialogs — open (with cookie DB lookup for pre-fill)
         $(document).on('click', '.wpog-open-cookie-dlg', function () {
             var $b = $(this);
+            var cookieName = $b.data('name') || '';
             $('#wpog-dlg-cookie-id').val($b.data('id'));
-            $('#wpog-dlg-cookie-name').val($b.data('name'));
-            // Reset other fields so they don't carry over from a previous open.
+            $('#wpog-dlg-cookie-name').val(cookieName);
+            // Reset other fields.
             $('#wpog-dlg-cookie-provider, #wpog-dlg-cookie-duration, #wpog-dlg-cookie-purpose, #wpog-dlg-cookie-privacy').val('');
+
+            // Look up in local cookie DB for pre-fill.
+            var dbMatch = $b.data('db-match');
+            if (dbMatch) {
+                try {
+                    var m = typeof dbMatch === 'string' ? JSON.parse(dbMatch) : dbMatch;
+                    if (m.platform)       $('#wpog-dlg-cookie-provider').val(m.platform);
+                    if (m.retention)      $('#wpog-dlg-cookie-duration').val(m.retention);
+                    if (m.description)    $('#wpog-dlg-cookie-purpose').val(m.description);
+                    if (m.privacy_url)    $('#wpog-dlg-cookie-privacy').val(m.privacy_url);
+                    if (m.category)       $('#wpog-dlg-cookie-cat').val(m.category);
+                } catch (e) {}
+            }
+
             $('#wpog-dlg-cookie').show();
             $('#wpog-dlg-cookie').find('input,select').first().trigger('focus');
         });
@@ -120,5 +183,8 @@
         $(document).on('keydown', function (e) {
             if (e.key === 'Escape') { $('.wpog-dlg-overlay').hide(); }
         });
+
+        // Init autocomplete on page load.
+        wpogInitAutocomplete();
     });
 })(jQuery);

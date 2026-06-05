@@ -22,6 +22,9 @@ class WPOG_Core {
         add_action( 'init', array( $this, 'load_textdomain' ) );
         add_action( 'plugins_loaded', array( __CLASS__, 'maybe_upgrade' ) );
 
+        // Register monthly cron schedule (not built into WordPress).
+        add_filter( 'cron_schedules', array( __CLASS__, 'register_cron_schedules' ) );
+
         // AJAX consent save (public + private).
         add_action( 'wp_ajax_wpog_save_consent', array( 'WPOG_Consent', 'ajax_save' ) );
         add_action( 'wp_ajax_nopriv_wpog_save_consent', array( 'WPOG_Consent', 'ajax_save' ) );
@@ -58,6 +61,20 @@ class WPOG_Core {
         add_action( 'wpog_daily_event', array( 'WPOG_Logger', 'purge_old' ) );
         add_action( 'wpog_daily_event', array( 'WPOG_Form_Consent_Logger', 'purge_old' ) );
         add_action( 'wpog_daily_event', array( 'WPOG_Terms_Consent_Logger', 'purge_old' ) );
+
+        // Monthly cookie database refresh.
+        add_action( 'wpog_monthly_cookie_db_refresh', array( 'WPOG_Cookie_Database', 'cron_refresh' ) );
+    }
+
+    /**
+     * Register custom cron schedules used by the plugin.
+     */
+    public static function register_cron_schedules( $schedules ) {
+        $schedules['monthly'] = array(
+            'interval' => MONTH_IN_SECONDS,
+            'display'  => __( 'Once Monthly', 'wp-opengdpr' ),
+        );
+        return $schedules;
     }
 
     public function load_textdomain() {
@@ -70,6 +87,7 @@ class WPOG_Core {
         WPOG_Form_Consent_Logger::install_table();
         WPOG_Terms_Consent_Logger::install_table();
         WPOG_Legal_Generator::install_table();
+        WPOG_Cookie_Database::install_table();
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
 
         // Register the My Account privacy endpoint, then flush rewrite rules so
@@ -82,6 +100,7 @@ class WPOG_Core {
         if ( ! wp_next_scheduled( 'wpog_daily_event' ) ) {
             wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wpog_daily_event' );
         }
+        WPOG_Cookie_Database::schedule_cron();
     }
 
     /**
@@ -100,6 +119,7 @@ class WPOG_Core {
         WPOG_Form_Consent_Logger::install_table();
         WPOG_Terms_Consent_Logger::install_table();
         WPOG_Legal_Generator::install_table();
+        WPOG_Cookie_Database::install_table();
 
         // 1.5.1: migrate module text strings into the centralized Translations system.
         if ( version_compare( (string) $current, '1.5.1', '<' ) ) {
@@ -180,6 +200,7 @@ class WPOG_Core {
         if ( $ts ) {
             wp_unschedule_event( $ts, 'wpog_daily_event' );
         }
+        WPOG_Cookie_Database::clear_cron();
         // Drop the rewrite endpoint registered for the My Account privacy tab.
         flush_rewrite_rules();
     }

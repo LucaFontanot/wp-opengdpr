@@ -43,3 +43,11 @@
 /* Privacy Consent submenu separator (non-clickable visual divider). */
 .wpog-submenu-sep{display:block;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.5px;opacity:.55;pointer-events:none;}
 #adminmenu .wp-submenu a:has(.wpog-submenu-sep){pointer-events:none;cursor:default;}
+
+/* ---- Open Cookie Database badge ---- */
+.wpog-db-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:3px;font-size:11px;font-weight:600;background:#e5f9e5;color:#1a6b1a;vertical-align:middle;cursor:help;}
+
+/* ---- jQuery UI Autocomplete overrides ---- */
+.ui-autocomplete{max-height:280px;overflow-y:auto;z-index:100001 !important;}
+.ui-autocomplete .ui-menu-item{font-size:13px;}
+.ui-autocomplete .ui-menu-item .wpog-ac-platform{font-size:11px;color:#888;display:block;}

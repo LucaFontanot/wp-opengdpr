@@ -32,7 +32,16 @@ class WPOG_Admin {
         wp_enqueue_script( 'wp-color-picker' );
         wp_enqueue_media();
         wp_enqueue_style( 'wpog-admin', WPOG_PLUGIN_URL . 'admin/assets/admin.css', array(), WPOG_VERSION );
-        wp_enqueue_script( 'wpog-admin', WPOG_PLUGIN_URL . 'admin/assets/admin.js', array( 'jquery', 'wp-color-picker' ), WPOG_VERSION, true );
+
+        $js_deps = array( 'jquery', 'wp-color-picker', 'jquery-ui-autocomplete' );
+        wp_enqueue_script( 'wpog-admin', WPOG_PLUGIN_URL . 'admin/assets/admin.js', $js_deps, WPOG_VERSION, true );
+
+        // Autocomplete REST endpoint + nonce for cookie DB lookups.
+        wp_localize_script( 'wpog-admin', 'wpogCookieDB', array(
+            'autocompleteUrl' => esc_url_raw( rest_url( 'wpog/v1/cookie-db/autocomplete' ) ),
+            'nonce'           => wp_create_nonce( 'wp_rest' ),
+            'hasData'         => WPOG_Cookie_Database::has_data(),
+        ) );
 
         // Legal Document Prompt Generator wizard — loaded ONLY on its own page
         // to keep the bundle off every other admin screen.
@@ -563,6 +572,19 @@ class WPOG_Admin {
                     WPOG_Terms_Consent_Logger::purge_old();
                 }
                 break;
+
+            case 'cookie_db_refresh':
+                $result = WPOG_Cookie_Database::refresh();
+                $args   = array();
+                if ( is_wp_error( $result ) ) {
+                    $args['wpog_msg'] = 'cookie_db_error';
+                    $args['wpog_err'] = urlencode( $result->get_error_message() );
+                } else {
+                    $args['wpog_msg']   = 'cookie_db_ok';
+                    $args['wpog_count'] = (int) $result;
+                }
+                wp_safe_redirect( add_query_arg( $args, wp_get_raw_referer() ?: admin_url( 'admin.php?page=wpog-categories' ) ) );
+                exit;
         }
 
         wp_safe_redirect( add_query_arg( 'updated', '1', wp_get_raw_referer() ?: admin_url( 'admin.php?page=' . self::SLUG ) ) );
@@ -744,6 +766,19 @@ class WPOG_Admin {
     public static function notice() {
         if ( ! empty( $_GET['updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Settings saved.', 'wp-opengdpr' ) . '</p></div>';
+        }
+        // Cookie DB refresh messages.
+        $msg = sanitize_key( $_GET['wpog_msg'] ?? '' );
+        if ( 'cookie_db_ok' === $msg ) {
+            $count = (int) ( $_GET['wpog_count'] ?? 0 );
+            echo '<div class="notice notice-success is-dismissible"><p>' .
+                esc_html( sprintf( __( 'Cookie database refreshed — %d cookies loaded.', 'wp-opengdpr' ), $count ) ) .
+                '</p></div>';
+        } elseif ( 'cookie_db_error' === $msg ) {
+            $err = sanitize_text_field( wp_unslash( $_GET['wpog_err'] ?? '' ) );
+            echo '<div class="notice notice-error is-dismissible"><p>' .
+                esc_html( sprintf( __( 'Cookie database refresh failed: %s', 'wp-opengdpr' ), $err ) ) .
+                '</p></div>';
         }
     }
 

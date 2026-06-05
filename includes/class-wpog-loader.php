@@ -17,6 +17,7 @@ class WPOG_Loader {
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-settings.php';
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-logger.php';
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-consent.php';
+        require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-cookie-database.php';
 
         // Custom (admin-defined) script injector — legacy "blocker" name kept
         // for backward compatibility with the public class API.

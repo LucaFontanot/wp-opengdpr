@@ -90,12 +90,29 @@ $nonce  = wp_create_nonce( WPOG_Admin::NONCE );
             <td><?php echo esc_html( $row->last_seen ); ?></td>
             <td><span class="wpog-status wpog-status-<?php echo esc_attr( $row->status ); ?>"><?php echo esc_html( $row->status ); ?></span></td>
             <td>
-                <?php if ( 'cookie' === $row->type ) : ?>
+                <?php if ( 'cookie' === $row->type ) :
+                    // Look up this cookie in the Open Cookie Database.
+                    $db_match = WPOG_Cookie_Database::lookup( $row->value );
+                    $db_data  = '';
+                    if ( $db_match ) {
+                        $db_data = wp_json_encode( array(
+                            'platform'    => $db_match->platform,
+                            'category'    => $db_match->category,
+                            'description' => $db_match->description,
+                            'retention'   => $db_match->retention_period,
+                            'privacy_url' => $db_match->privacy_url,
+                        ) );
+                    }
+                ?>
                     <button type="button" class="button button-primary wpog-open-cookie-dlg"
                         data-id="<?php echo (int) $row->id; ?>"
                         data-name="<?php echo esc_attr( $row->value ); ?>"
+                        data-db-match="<?php echo esc_attr( $db_data ); ?>"
                         data-nonce="<?php echo esc_attr( $nonce ); ?>"
                     ><?php esc_html_e( 'Add to Category', 'wp-opengdpr' ); ?></button>
+                    <?php if ( $db_match ) : ?>
+                        <span class="wpog-db-badge" title="<?php esc_attr_e( 'Matched in Open Cookie Database', 'wp-opengdpr' ); ?>">&#10003; <?php esc_html_e( 'Known', 'wp-opengdpr' ); ?></span>
+                    <?php endif; ?>
 
                 <?php elseif ( 'script' === $row->type ) : ?>
                     <button type="button" class="button button-primary wpog-open-blocker-dlg"

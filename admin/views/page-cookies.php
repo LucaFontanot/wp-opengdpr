@@ -4,6 +4,38 @@ $cats = WPOG_Settings::get( 'categories' );
 $keys = array( 'necessary', 'functional', 'analytics', 'marketing' );
 ?>
 <h1><?php esc_html_e( 'Categories & Cookies', 'wp-opengdpr' ); ?></h1>
+
+<?php
+// Open Cookie Database status.
+$db_has_data   = WPOG_Cookie_Database::has_data();
+$db_last_fetch = (int) get_option( 'wpog_cookie_db_last_fetch', 0 );
+if ( ! $db_has_data ) : ?>
+    <div class="notice notice-warning"><p>
+        <?php esc_html_e( 'The Open Cookie Database has not been loaded yet. Click the button below to download it — this enables cookie name autocomplete and automatic pre-fill.', 'wp-opengdpr' ); ?>
+    </p></div>
+<?php endif; ?>
+
+<p style="margin:8px 0 16px;">
+    <strong><?php esc_html_e( 'Open Cookie Database', 'wp-opengdpr' ); ?>:</strong>
+    <?php if ( $db_has_data ) : ?>
+        <span style="color:#1a6b1a;">&#10003; <?php esc_html_e( 'Loaded', 'wp-opengdpr' ); ?></span>
+        <?php if ( $db_last_fetch ) : ?>
+            <em style="color:#888;margin-left:8px;"><?php echo esc_html( __( 'Last updated', 'wp-opengdpr' ) . ': ' . gmdate( 'Y-m-d', $db_last_fetch ) ); ?></em>
+        <?php endif; ?>
+    <?php else : ?>
+        <span style="color:#8a0000;">&#10007; <?php esc_html_e( 'Not loaded', 'wp-opengdpr' ); ?></span>
+    <?php endif; ?>
+</p>
+<form method="post" style="display:inline;">
+    <?php wp_nonce_field( WPOG_Admin::NONCE ); ?>
+    <input type="hidden" name="wpog_form" value="cookie_db_refresh" />
+    <button type="submit" class="button button-secondary">
+        <?php $db_has_data ? esc_html_e( 'Refresh database now', 'wp-opengdpr' ) : esc_html_e( 'Download database now', 'wp-opengdpr' ); ?>
+    </button>
+</form>
+
+<hr style="margin:24px 0;" />
+
 <?php WPOG_Admin::form_open( 'categories' ); ?>
 <?php foreach ( $keys as $k ) :
     $cat = $cats[ $k ];
@@ -21,6 +53,9 @@ $keys = array( 'necessary', 'functional', 'analytics', 'marketing' );
                 <td><textarea rows="3" class="large-text" name="wpog[<?php echo esc_attr( $k ); ?>][extended]"><?php echo esc_textarea( $cat['extended'] ); ?></textarea></td></tr>
         </table>
         <h4><?php esc_html_e( 'Cookies', 'wp-opengdpr' ); ?></h4>
+        <?php if ( $db_has_data ) : ?>
+            <p class="description"><?php esc_html_e( 'Start typing a cookie name — suggestions from the Open Cookie Database will appear. Selecting one auto-fills the remaining fields.', 'wp-opengdpr' ); ?></p>
+        <?php endif; ?>
         <table class="widefat wpog-cookies-table" data-cat="<?php echo esc_attr( $k ); ?>">
             <thead><tr><th><?php esc_html_e( 'Name', 'wp-opengdpr' ); ?></th><th><?php esc_html_e( 'Provider', 'wp-opengdpr' ); ?></th><th><?php esc_html_e( 'Duration', 'wp-opengdpr' ); ?></th><th><?php esc_html_e( 'Purpose', 'wp-opengdpr' ); ?></th><th><?php esc_html_e( 'Provider privacy URL', 'wp-opengdpr' ); ?></th><th></th></tr></thead>
             <tbody>

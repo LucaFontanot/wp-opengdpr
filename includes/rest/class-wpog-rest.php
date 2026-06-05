@@ -29,10 +29,50 @@ class WPOG_REST {
                 'permission_callback' => array( __CLASS__, 'can_track' ),
             )
         );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/cookie-db/autocomplete',
+            array(
+                'methods'             => 'GET',
+                'callback'            => array( __CLASS__, 'cookie_autocomplete' ),
+                'permission_callback' => array( __CLASS__, 'can_track' ),
+                'args'                => array(
+                    's' => array(
+                        'required'          => true,
+                        'type'              => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                ),
+            )
+        );
     }
 
     public static function can_track() {
         return current_user_can( 'manage_options' );
+    }
+
+    public static function cookie_autocomplete( WP_REST_Request $request ) {
+        $search = $request->get_param( 's' );
+        if ( '' === $search || strlen( $search ) < 2 ) {
+            return new WP_REST_Response( array(), 200 );
+        }
+        $results = WPOG_Cookie_Database::autocomplete( $search, 15 );
+        $out = array();
+        foreach ( $results as $row ) {
+            $out[] = array(
+                'id'             => (int) $row->id,
+                'cookie_name'    => $row->cookie_name,
+                'platform'       => $row->platform,
+                'category'       => $row->category,
+                'description'    => $row->description,
+                'retention'      => $row->retention_period,
+                'data_controller' => $row->data_controller,
+                'privacy_url'    => $row->privacy_url,
+                'wildcard'       => (int) $row->wildcard_match,
+            );
+        }
+        return new WP_REST_Response( $out, 200 );
     }
 
     public static function track( WP_REST_Request $request ) {
