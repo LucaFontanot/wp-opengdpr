@@ -321,10 +321,10 @@ class WPOG_Admin {
                 $in   = wp_unslash( (array) ( $_POST['wpog']['translations'] ?? array() ) );
                 $keys = array_keys( WPOG_Settings::default_strings() );
                 $out  = array();
+                $html_fields = array( 'banner_message', 'form_privacy_checkbox_label', 'terms_terms_checkbox_label', 'terms_privacy_checkbox_label' );
                 foreach ( $keys as $k ) {
                     if ( isset( $in[ $k ] ) && '' !== trim( (string) $in[ $k ] ) ) {
-                        // banner_message supports HTML (rich-text editor)
-                        $out[ $k ] = ( 'banner_message' === $k )
+                        $out[ $k ] = in_array( $k, $html_fields, true )
                             ? wp_kses_post( $in[ $k ] )
                             : sanitize_textarea_field( $in[ $k ] );
                     }
@@ -341,7 +341,9 @@ class WPOG_Admin {
                         $clean = array();
                         foreach ( $keys as $k ) {
                             if ( isset( $data[ $k ] ) ) {
-                                $clean[ $k ] = sanitize_textarea_field( (string) $data[ $k ] );
+                                $clean[ $k ] = in_array( $k, $html_fields, true )
+                                    ? wp_kses_post( (string) $data[ $k ] )
+                                    : sanitize_textarea_field( (string) $data[ $k ] );
                             }
                         }
                         update_option( 'wpog_translations', $clean );

@@ -148,6 +148,8 @@ class WPOG_Core {
             $translations = array();
         }
 
+        $html_fields = array( 'form_privacy_checkbox_label', 'terms_terms_checkbox_label', 'terms_privacy_checkbox_label' );
+
         // Form Privacy Consent module.
         $default_fc = WPOG_Settings::defaults( 'form_consent' );
         $fc         = get_option( 'wpog_form_consent', array() );
@@ -163,7 +165,9 @@ class WPOG_Core {
                 // Only migrate if the value was customized (differs from default)
                 // and the Translations slot is still empty.
                 if ( '' !== $val && $val !== $def && empty( $translations[ $new_key ] ) ) {
-                    $translations[ $new_key ] = sanitize_textarea_field( $val );
+                    $translations[ $new_key ] = in_array( $new_key, $html_fields, true )
+                        ? wp_kses_post( $val )
+                        : sanitize_textarea_field( $val );
                 }
             }
         }
@@ -185,7 +189,9 @@ class WPOG_Core {
                 $val = isset( $tc[ $old_key ] ) ? (string) $tc[ $old_key ] : '';
                 $def = isset( $default_tc[ $old_key ] ) ? (string) $default_tc[ $old_key ] : '';
                 if ( '' !== $val && $val !== $def && empty( $translations[ $new_key ] ) ) {
-                    $translations[ $new_key ] = sanitize_textarea_field( $val );
+                    $translations[ $new_key ] = in_array( $new_key, $html_fields, true )
+                        ? wp_kses_post( $val )
+                        : sanitize_textarea_field( $val );
                 }
             }
         }

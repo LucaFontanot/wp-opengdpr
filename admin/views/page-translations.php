@@ -56,9 +56,9 @@ $textareas = array( 'popup_necessary_desc', 'popup_functional_desc', 'popup_anal
         <th><label for="wpog-tr-<?php echo esc_attr( $key ); ?>"><code><?php echo esc_html( $key ); ?></code></label></th>
         <td>
             <?php if ( $is_textarea ) : ?>
-                <textarea id="wpog-tr-<?php echo esc_attr( $key ); ?>" class="large-text" rows="2" name="wpog[translations][<?php echo esc_attr( $key ); ?>]" placeholder="<?php echo esc_attr( $default ); ?>"><?php echo esc_textarea( $current ); ?></textarea>
+                <textarea id="wpog-tr-<?php echo esc_attr( $key ); ?>" class="large-text" rows="2" name="wpog[translations][<?php echo esc_attr( $key ); ?>]" placeholder="<?php echo esc_attr( $default ); ?>"><?php echo esc_textarea( $current !== '' ? $current : $default ); ?></textarea>
             <?php else : ?>
-                <input type="text" id="wpog-tr-<?php echo esc_attr( $key ); ?>" class="regular-text" name="wpog[translations][<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $current ); ?>" placeholder="<?php echo esc_attr( $default ); ?>" />
+                <input type="text" id="wpog-tr-<?php echo esc_attr( $key ); ?>" class="regular-text" name="wpog[translations][<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $current !== '' ? $current : $default ); ?>" placeholder="<?php echo esc_attr( $default ); ?>" />
             <?php endif; ?>
             <button type="button" class="button button-small wpog-tr-reset" data-target="wpog-tr-<?php echo esc_attr( $key ); ?>"><?php esc_html_e( 'Reset', 'wp-opengdpr' ); ?></button>
         </td>

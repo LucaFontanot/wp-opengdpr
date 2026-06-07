@@ -108,11 +108,12 @@ class WPOG_WooCommerce_Integration {
                 '<p class="form-row wpog-consent-field wpog-consent-terms validate-required">
                     <label class="woocommerce-form__label checkbox">
                         <input type="checkbox" name="%1$s" value="1" class="input-checkbox" required aria-required="true">
-                        <span class="wpog-consent-label">%2$s</span>
+                        <span class="wpog-consent-label" data-wpog-url="%3$s">%2$s</span>
                     </label>
                 </p>',
                 esc_attr( self::FIELD_TERMS ),
-                wp_kses( WPOG_Terms_Consent::terms_label(), $allowed )
+                wp_kses( WPOG_Terms_Consent::terms_label(), $allowed ),
+                esc_url( $terms_url )
             );
         }
 
@@ -122,11 +123,12 @@ class WPOG_WooCommerce_Integration {
                 '<p class="form-row wpog-consent-field wpog-consent-privacy validate-required">
                     <label class="woocommerce-form__label checkbox">
                         <input type="checkbox" name="%1$s" value="1" class="input-checkbox" required aria-required="true">
-                        <span class="wpog-consent-label">%2$s</span>
+                        <span class="wpog-consent-label" data-wpog-url="%3$s">%2$s</span>
                     </label>
                 </p>',
                 esc_attr( self::FIELD_PRIVACY ),
-                wp_kses( WPOG_Terms_Consent::privacy_label(), $allowed )
+                wp_kses( WPOG_Terms_Consent::privacy_label(), $allowed ),
+                esc_url( WPOG_Terms_Consent::privacy_url() )
             );
         }
 

@@ -42,6 +42,10 @@ class WPOG_WooCommerce_Blocks_Integration {
             return;
         }
 
+        // Enqueue the linkification script on the block checkout page so
+        // plain-text "text (URL)" labels become clickable links.
+        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+
         add_action( 'woocommerce_init', array( __CLASS__, 'register_fields' ) );
 
         // Log consent on every status transition that a block-checkout order can
@@ -56,6 +60,18 @@ class WPOG_WooCommerce_Blocks_Integration {
 
         // Suppress native WC Terms block when our fields handle consent.
         add_filter( 'render_block', array( __CLASS__, 'suppress_native_terms_block' ), 10, 2 );
+    }
+
+    /**
+     * Enqueue the terms-consent JS on the checkout page when the block
+     * checkout is in use, so the linkify logic can convert plain-text
+     * "text (URL)" labels to clickable links.
+     */
+    public static function enqueue_assets() {
+        if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) {
+            return;
+        }
+        WPOG_Terms_Consent::enqueue_assets();
     }
 
     /* ---------- native Terms block suppression ---------- */
