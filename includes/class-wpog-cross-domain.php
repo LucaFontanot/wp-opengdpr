@@ -295,19 +295,42 @@ class WPOG_Cross_Domain {
     /**
      * Assemble the complete self-contained cross-domain JavaScript payload.
      *
-     * Every admin configuration change is reflected automatically because
-     * settings are read fresh from wp_options on every request.
+     * The generated script is cached in a transient keyed by a hash of all
+     * contributing settings.  Any admin change (banner colours, categories,
+     * translations, blocker rules, etc.) produces a different hash, which
+     * automatically invalidates the cache — no explicit cache-busting needed.
      *
      * @return string Valid JavaScript.
      */
     private static function generate_bridge_js() {
+        // ── Read every option that influences the bridge output ──
         $general       = WPOG_Settings::get( 'general' );
         $banner        = WPOG_Settings::get( 'banner' );
         $popup         = WPOG_Settings::get( 'popup' );
         $categories    = WPOG_Settings::get( 'categories' );
         $scripts_data  = WPOG_Settings::get( 'scripts' );
+        $translations  = get_option( 'wpog_translations', array() );
         $blocker_rules = class_exists( 'WPOG_Domain_Blocker' ) ? WPOG_Domain_Blocker::all() : array();
         $cookie_policy = get_option( 'wpog_cookie_policy', '' );
+
+        // ── Build a hash fingerprint of all inputs ──
+        $fingerprint = md5( serialize( array(
+            'v'              => WPOG_VERSION,
+            'general'        => $general,
+            'banner'         => $banner,
+            'popup'          => $popup,
+            'categories'     => $categories,
+            'scripts'        => $scripts_data,
+            'translations'   => $translations,
+            'blocker_rules'  => $blocker_rules,
+            'cookie_policy'  => $cookie_policy,
+        ) ) );
+
+        $cache_key = 'wpog_bridge_js_' . $fingerprint;
+        $cached    = get_transient( $cache_key );
+        if ( false !== $cached ) {
+            return $cached;
+        }
 
         // Build the consent config object (mirrors WPOG_DATA).
         $duration = (int) ( $general['consent_duration'] ?? 180 );
@@ -471,6 +494,10 @@ class WPOG_Cross_Domain {
         $out .= "var S=" . $settings_json . ";\n";
         $out .= $js;
         $out .= "})();\n";
+
+        // Cache for 24 hours.  The key includes a settings fingerprint so any
+        // admin change automatically produces a cache miss on the next request.
+        set_transient( $cache_key, $out, DAY_IN_SECONDS );
 
         return $out;
     }
