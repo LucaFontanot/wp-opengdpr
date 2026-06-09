@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> Living technical map of the **WP OpenGDPR** plugin (v1.5.1). Keep this in sync
+> Living technical map of the **WP OpenGDPR** plugin (v1.6.0). Keep this in sync
 > when adding/removing files, classes, REST routes, options or DB tables.
 
 ---
@@ -24,6 +24,9 @@ wp-opengdpr.php  ── bootstraps WPOG_Loader → loads everything → instanti
               ┌───────────────────┬───────────────────┬──────────────────────────┐
               │ WPOG_Public       │ WPOG_Admin        │ REST + AJAX + Cron       │
               │ (frontend render) │ (settings UI)     │ (data ingress)           │
+              │ WPOG_Cross_Domain │                   │                          │
+              │ (cross-domain     │                   │                          │
+              │  consent bridge)  │                   │                          │
               └─────────┬─────────┴─────────┬─────────┴──────────────┬───────────┘
                         │                   │                        │
               ┌─────────▼──────────┐  ┌─────▼─────────────┐  ┌───────▼────────┐
@@ -50,6 +53,7 @@ wp-opengdpr/
 │   ├── class-wpog-settings.php        Options wrapper + defaults + i18n strings
 │   ├── class-wpog-logger.php          {prefix}wpog_consent_log table I/O
 │   ├── class-wpog-consent.php         Cookie reader / validator, ajax_save endpoint
+│   ├── class-wpog-cross-domain.php    Cross-domain consent bridge — serves self-contained JS via REST
 │   ├── class-wpog-script-blocker.php  Admin-defined custom-script injector (head/body)
 │   ├── blocker/
 │   │   └── class-wpog-domain-blocker.php   Domain-rule storage + frontend bootstrap
@@ -92,6 +96,7 @@ wp-opengdpr/
 │       ├── page-logs.php
 │       ├── page-translations.php
 │       ├── page-settings-io.php
+│       ├── page-cross-domains.php     Cross-Domain Consent — manage authorized external domains
 │       ├── page-form-consent.php      Privacy Consent — general settings
 │       ├── page-form-texts.php        Privacy Consent — checkbox texts & labels
 │       ├── page-form-integrations.php Privacy Consent — CF7 / WPForms / form-builder integrations
@@ -149,6 +154,7 @@ wp-opengdpr/
 | `WPOG_Legal_Generator` | Legal Doc Generator data layer. Manages `{prefix}wpog_legal_prompts` (`install_table()`, `ensure_table()`, `save()`, `query()` → `{rows,total}`, `get()` decodes `form_data` JSON, `delete()`). `prefill_data()` bridges existing modules (cookie/privacy/terms options + WooCommerce/CF7 presence) into the wizard. `supervisory_authorities()` returns a country→authority map (~31 EU/EEA + UK/CH). `DOCS` const = `['privacy','cookie','terms']`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `WPOG_Legal_REST` | Registers REST routes under `wpog/v1/legal-generator` (`NAMESPACE_V1='wpog/v1'`, `BASE='legal-generator'`). Routes: `GET /prefill`, `GET                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |POST /prompts`, `GET|DELETE /prompts/{id}`. All `manage_options` + `X-WP-Nonce`. |
 | `WPOG_Public` | Enqueues frontend CSS/JS, localises `WPOG_DATA` (consent runtime config), `WPOG_TRACK` (admin-only, contains `endpoint`, `nonce`, `page_url`). Renders banner+popup+FAB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `WPOG_Cross_Domain` | Cross-Domain Consent Bridge — enables external (non-WordPress) sites to embed the same consent UI. Manages `wpog_cross_domains` option (domain whitelist). Registers REST routes `GET /wpog/v1/consent-bridge` (serves self-contained JS with inlined config, CSS, HTML, logic and blocker) and `POST /wpog/v1/consent-bridge/log` (receives consent audit logs with CORS + origin validation). Admin page under Cookie Consent → Cross-Domain. Origin validated against whitelist on every request; CORS headers set for allowed origins.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `WPOG_Admin` | Registers four top-level WP admin menus (**GDPR Settings** slug `wpog` — submenus: General Settings, Translations, Export/Import, ✨ Legal Generator; **Cookie Consent** slug `wpog-cookie`; **Privacy Consent** slug `wpog-privacy`; **Terms & Conditions** slug `wpog-terms`); `route()` maps page slugs to view files; on the `wpog-legal` page it enqueues `legal-generator.{css,js}` (dep `wp-i18n`) and localises **`wpogLegalGen`** = `{ restUrl, nonce (wp_rest), prefill, authorities }`; `handle_post()` switch routes per-form sanitisation (`general` saves shared URLs, `cookie_settings` saves all other cookie-consent keys; `terms_general`/`terms_woocommerce`/`terms_register_version`/`terms_logs` handle the T&C module; since 1.5.1 all checkbox texts moved to Translations, `form_texts`/`terms_texts` cases removed) — all use `WPOG_Settings::update()`); export handlers (`export_terms_logs` for the T&C CSV). Nonce constant: `WPOG_Admin::NONCE`.                                                                                                                                                                                                                                                                                                                                     |
 
 ---
@@ -216,7 +222,8 @@ When an admin clicks **Add to Category**, `WPOG_Admin::handle_post()`
 | `wpog_form_consent` | Form privacy-consent module (independent from cookie consent). Keys: `enabled`, `privacy_policy_version`, `block_submit_without_consent`, `log_enabled`, `log_retention_days`, `checkbox_main_enabled`, `checkbox_main_required`, `checkbox_main_label` (supports a single `<a>`, `{privacy_url}` placeholder), `checkbox_main_error`, `checkbox_marketing_enabled`, `checkbox_marketing_required`, `checkbox_marketing_label`, `cf7_enabled`, `cf7_auto_inject`, `cf7_position` (`before_submit`/`after_fields`/`manual`), `cf7_form_ids` (empty = all), `wpforms_enabled`, `wpforms_form_ids` (empty = all). Saved across three admin pages via `WPOG_Settings::update()` (merge). |
 | `wpog_terms_consent` | Terms & Conditions module (e-commerce). Keys: `enabled`, `terms_page_id`, `terms_version`, `terms_last_updated`, `privacy_page_id`, `require_terms_acceptance`, `require_privacy_acceptance`, `show_marketing_consent`, `require_age_verification`, `minimum_age`, `terms_checkbox_label` (`{terms_url}`/`{privacy_url}`), `privacy_checkbox_label` (`{privacy_url}`), `marketing_checkbox_label`, `age_checkbox_label` (`{min_age}`), `terms_error_message`, `privacy_error_message`, `age_error_message` (`{min_age}`), `log_enabled`, `log_save_to_order_meta`, `log_retention_days` (default 730), `woocommerce_enabled`, `wc_checkout_position` (`before_submit`/`before_terms`/`after_terms`), `wc_replace_native_terms`, `wc_show_terms_inline`, `wc_order_column`, `wc_registration_consent` (show Privacy + Marketing checkboxes on the My Account registration form, default 1), `myaccount_privacy_enabled` (add the My Account → Privacy & Consents tab, default 1). Saved across the General/WooCommerce admin pages via `WPOG_Settings::update()`. |
 | `wpog_terms_versions` | T&C version history: `[ { version, effective_date, reason, hash (SHA-256), status (active/historic) } ]`. Written by `WPOG_Terms_Consent::register_version()` from the **Documents & Versions** page. |
-| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.5.1`). |
+| `wpog_cross_domains` | `[ { domain, active } ]` — whitelisted external domains permitted to embed the consent bridge script. Managed via Cookie Consent → Cross-Domain. |
+| `wpog_db_version` | Used to detect schema upgrades; compared against `WPOG_Settings::DB_VERSION` (currently `1.6.0`). |
 
 > The Legal Doc Generator stores saved prompts in its own table (`{prefix}wpog_legal_prompts`), not in an option. It does not introduce any `wpog_*` option key.
 
@@ -251,6 +258,8 @@ Detection `type` values: `script`, `iframe`, `img`, `link`, `cookie`.
 | `/wpog/v1/legal-generator/prompts` | POST | `manage_options` + `X-WP-Nonce` | `{ prompt_name, form_data, prompt_text, documents[], language }` | `{ ok: true, id }` |
 | `/wpog/v1/legal-generator/prompts/{id}` | GET | `manage_options` + `X-WP-Nonce` | — | full row (`form_data` decoded) |
 | `/wpog/v1/legal-generator/prompts/{id}` | DELETE | `manage_options` + `X-WP-Nonce` | — | `{ ok: bool }` |
+| `/wpog/v1/consent-bridge` | GET | Public (origin validated against `wpog_cross_domains` whitelist) | — | Self-contained JavaScript file (config + CSS + HTML + consent logic + blocker). Content-Type: `application/javascript`. CORS headers for allowed origins. |
+| `/wpog/v1/consent-bridge/log` | POST | Public (origin validated + rate-limited 30/hr per origin+IP) | `{ id, date, version, categories: { necessary, functional, analytics, marketing }, action }` | `{ ok: true }` or `{ ok: false, reason }`. Logs to `wpog_consent_log` via `WPOG_Logger::log()`. |
 
 AJAX (still on `admin-ajax.php`):
 
@@ -308,7 +317,8 @@ Placeholders `{privacy_url}`, `{terms_url}`, `{min_age}` are resolved at render 
 - CSS placeholder class for blocked elements: `wpog-lazyload`.
 - Nonces: admin forms use `wpog_admin` (`WPOG_Admin::NONCE`); AJAX consent uses
   `wpog_consent`; REST tracking uses the standard `wp_rest` nonce
-  (`X-WP-Nonce` header).
+  (`X-WP-Nonce` header). Cross-domain REST endpoints are public (no nonce);
+  origin validated against `wpog_cross_domains` whitelist.
 - Blocker rule uniqueness: `(domain, path)` — same domain may have multiple
   path-scoped rules.
 - Form consent admin POST inputs use the `wpog_fc[...]` prefix; `wpog_form`
@@ -320,6 +330,8 @@ Placeholders `{privacy_url}`, `{terms_url}`, `{min_age}` are resolved at render 
   modes render identical markup with the same field names; checkbox CSS classes:
   `wpog-form-consent-wrapper`, `wpog-consent-field`, `wpog-consent-label`,
   `wpog-consent-error`.
+- Cross-domain admin POST inputs use the `wpog[cross_domains][...]` prefix; `wpog_form`
+  router value: `cross_domains`.
 - T&C consent admin POST inputs use the `wpog_tc[...]` prefix; `wpog_form`
   router values: `terms_general`, `terms_texts`, `terms_woocommerce`,
   `terms_register_version`, `terms_logs`. CSV export action:

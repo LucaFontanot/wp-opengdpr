@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.5.2';
+    const DB_VERSION = '1.6.0';
 
     public static function defaults( $group ) {
         $defaults = array(

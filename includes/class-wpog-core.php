@@ -35,6 +35,9 @@ class WPOG_Core {
         // Legal Document Prompt Generator REST endpoints.
         WPOG_Legal_REST::init();
 
+        // Cross-domain consent bridge REST endpoints.
+        WPOG_Cross_Domain::init();
+
         // Form privacy consent — registered on every request: rendering happens
         // on the front-end while validation/logging happen during the CF7 AJAX
         // submission (which runs in an admin context).

@@ -47,6 +47,9 @@ class WPOG_Loader {
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-privacy-api.php';
         require_once WPOG_PLUGIN_DIR . 'includes/terms-consent/class-wpog-terms-consent.php';
 
+        // Cross-domain consent bridge (serve identical consent UI to external sites).
+        require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-cross-domain.php';
+
         // Core wiring.
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-core.php';
 

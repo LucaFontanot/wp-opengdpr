@@ -93,14 +93,15 @@ class WPOG_Admin {
         );
         // 'wpog-cookie' as first slug overrides the auto-generated duplicate entry.
         $cookie_pages = array(
-            'wpog-cookie'       => __( 'Cookie Settings', 'wp-opengdpr' ),
-            'wpog-banner'       => __( 'Banner Appearance', 'wp-opengdpr' ),
-            'wpog-popup'        => __( 'Popup Appearance', 'wp-opengdpr' ),
-            'wpog-categories'   => __( 'Categories & Cookies', 'wp-opengdpr' ),
-            'wpog-scripts'      => __( 'Script Manager', 'wp-opengdpr' ),
-            'wpog-blocker'      => __( 'Domain Blocker', 'wp-opengdpr' ),
-            'wpog-tracking'     => __( 'Detections', 'wp-opengdpr' ),
-            'wpog-logs'         => __( 'Consent Logs', 'wp-opengdpr' ),
+            'wpog-cookie'          => __( 'Cookie Settings', 'wp-opengdpr' ),
+            'wpog-banner'          => __( 'Banner Appearance', 'wp-opengdpr' ),
+            'wpog-popup'           => __( 'Popup Appearance', 'wp-opengdpr' ),
+            'wpog-categories'      => __( 'Categories & Cookies', 'wp-opengdpr' ),
+            'wpog-scripts'         => __( 'Script Manager', 'wp-opengdpr' ),
+            'wpog-blocker'         => __( 'Domain Blocker', 'wp-opengdpr' ),
+            'wpog-tracking'        => __( 'Detections', 'wp-opengdpr' ),
+            'wpog-logs'            => __( 'Consent Logs', 'wp-opengdpr' ),
+            'wpog-cross-domains'   => __( 'Cross-Domain', 'wp-opengdpr' ),
         );
         foreach ( $cookie_pages as $slug => $title ) {
             add_submenu_page( 'wpog-cookie', $title, $title, self::CAP, $slug, array( __CLASS__, 'route' ) );
@@ -164,7 +165,8 @@ class WPOG_Admin {
             'wpog-scripts'      => 'page-scripts.php',
             'wpog-blocker'      => 'page-blocker.php',
             'wpog-tracking'     => 'page-tracking.php',
-            'wpog-logs'         => 'page-logs.php',
+            'wpog-logs'           => 'page-logs.php',
+            'wpog-cross-domains'  => 'page-cross-domains.php',
             // Privacy Consent menu ('wpog-privacy' is the top-level → shows privacy settings page)
             'wpog-privacy'           => 'page-form-consent.php',
             'wpog-form-consent'      => 'page-form-consent.php',
@@ -375,6 +377,21 @@ class WPOG_Admin {
                 WPOG_Domain_Blocker::save_all( $rules );
                 break;
 
+            case 'cross_domains':
+                $in   = wp_unslash( (array) ( $_POST['wpog']['cross_domains'] ?? array() ) );
+                $domains = array();
+                foreach ( $in as $row ) {
+                    if ( empty( $row['domain'] ) ) {
+                        continue;
+                    }
+                    $domains[] = array(
+                        'domain' => sanitize_text_field( $row['domain'] ),
+                        'active' => ! empty( $row['active'] ) ? 1 : 0,
+                    );
+                }
+                WPOG_Cross_Domain::save_domains( $domains );
+                break;
+
             case 'add_cookie':
                 // Append a detected cookie to an existing consent category.
                 $det_id   = (int) ( $_POST['wpog_detection_id'] ?? 0 );
@@ -462,6 +479,9 @@ class WPOG_Admin {
                         }
                         if ( isset( $data['cookie_policy'] ) ) {
                             update_option( 'wpog_cookie_policy', wp_kses_post( (string) $data['cookie_policy'] ) );
+                        }
+                        if ( isset( $data['cross_domains'] ) && is_array( $data['cross_domains'] ) ) {
+                            update_option( 'wpog_cross_domains', $data['cross_domains'] );
                         }
                     }
                 }
@@ -754,7 +774,8 @@ class WPOG_Admin {
         foreach ( $groups as $group ) {
             $data[ $group ] = get_option( 'wpog_' . $group, array() );
         }
-        $data['cookie_policy'] = get_option( 'wpog_cookie_policy', '' );
+        $data['cookie_policy']  = get_option( 'wpog_cookie_policy', '' );
+        $data['cross_domains']  = get_option( 'wpog_cross_domains', array() );
 
         $filename = 'wpog-settings-' . gmdate( 'Y-m-d' ) . '.json';
         nocache_headers();
