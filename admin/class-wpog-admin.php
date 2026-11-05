@@ -747,12 +747,17 @@ class WPOG_Admin {
             wp_die( 'Forbidden' );
         }
         check_admin_referer( self::NONCE );
-        $data = get_option( 'wpog_translations', array() );
-        if ( ! is_array( $data ) ) { $data = array(); }
+        // Export every string with its effective value (admin override →
+        // .po translation → English default), not just the saved overrides —
+        // otherwise a site with no overrides would download an empty "[]".
+        $data = array();
+        foreach ( array_keys( WPOG_Settings::default_strings() ) as $key ) {
+            $data[ $key ] = WPOG_Settings::string( $key );
+        }
         nocache_headers();
         header( 'Content-Type: application/json; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename=wpog-translations.json' );
-        echo wp_json_encode( $data, JSON_PRETTY_PRINT );
+        echo wp_json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
         exit;
     }
 
