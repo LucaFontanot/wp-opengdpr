@@ -778,7 +778,7 @@
             if (saved && saved.state) {
                 state = mergeState(defaultState(), saved.state);
                 if (saved.currentStep) {
-                    currentStep = saved.currentStep;
+                    currentStep = Math.max(1, Math.min(TOTAL, parseInt(saved.currentStep, 10) || 1));
                 }
                 return true;
             }
@@ -788,7 +788,9 @@
     }
 
     function mergeState(base, over) {
-        Object.keys(over).forEach(function (k) {
+        Object.keys(over || {}).forEach(function (k) {
+            // Guard against prototype pollution from localStorage / saved prompts.
+            if (k === "__proto__" || k === "constructor" || k === "prototype") { return; }
             if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k]) {
                 base[k] = mergeState(base[k], over[k]);
             } else {

@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class WPOG_Settings {
 
-    const DB_VERSION = '1.6.0';
+    const DB_VERSION = '1.6.1';
 
     public static function defaults( $group ) {
         $defaults = array(
@@ -24,6 +24,7 @@ class WPOG_Settings {
                 'eu_only'              => 0,
                 'log_enabled'          => 1,
                 'anonymize_ip'         => 1,
+                'trust_proxy_headers'  => 0,
                 'log_retention_days'   => 365,
                 'fab_enabled'          => 1,
                 'fab_position'         => 'bottom-right',
@@ -172,12 +173,46 @@ class WPOG_Settings {
         return isset( $defaults[ $group ] ) ? $defaults[ $group ] : array();
     }
 
-    public static function get( $group, $key = null, $fallback = null ) {
-        $opt = get_option( 'wpog_' . $group, array() );
-        if ( ! is_array( $opt ) ) {
-            $opt = array();
+    /**
+     * Per-request cache of merged (defaults + stored) option groups.
+     * Invalidated whenever a wpog_* option is added/updated/deleted.
+     *
+     * @var array
+     */
+    private static $cache = array();
+
+    /** @var array|null */
+    private static $strings_cache = null;
+
+    /**
+     * Register cache-invalidation hooks. Called once from the loader.
+     */
+    public static function init_cache() {
+        add_action( 'added_option', array( __CLASS__, 'maybe_flush_cache' ) );
+        add_action( 'updated_option', array( __CLASS__, 'maybe_flush_cache' ) );
+        add_action( 'deleted_option', array( __CLASS__, 'maybe_flush_cache' ) );
+    }
+
+    public static function maybe_flush_cache( $option ) {
+        if ( is_string( $option ) && 0 === strpos( $option, 'wpog_' ) ) {
+            self::flush_cache();
         }
-        $opt = array_merge( self::defaults( $group ), $opt );
+    }
+
+    public static function flush_cache() {
+        self::$cache         = array();
+        self::$strings_cache = null;
+    }
+
+    public static function get( $group, $key = null, $fallback = null ) {
+        if ( ! isset( self::$cache[ $group ] ) ) {
+            $opt = get_option( 'wpog_' . $group, array() );
+            if ( ! is_array( $opt ) ) {
+                $opt = array();
+            }
+            self::$cache[ $group ] = array_merge( self::defaults( $group ), $opt );
+        }
+        $opt = self::$cache[ $group ];
         if ( null === $key ) {
             return $opt;
         }
@@ -194,10 +229,230 @@ class WPOG_Settings {
         }
         $merged = array_merge( $current, (array) $values );
         update_option( 'wpog_' . $group, $merged );
+        self::flush_cache();
     }
 
     public static function replace( $group, $values ) {
         update_option( 'wpog_' . $group, $values );
+        self::flush_cache();
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Shared sanitizers (used by admin forms AND settings import)        */
+    /* ------------------------------------------------------------------ */
+
+    const CATEGORY_KEYS = array( 'necessary', 'functional', 'analytics', 'marketing' );
+
+    /**
+     * Strictly validate a CSS colour: #hex, rgb()/rgba()/hsl()/hsla() with
+     * numeric arguments only, or "transparent". Anything else (which could
+     * break out of the CSS declaration) returns $fallback.
+     */
+    public static function sanitize_css_color( $value, $fallback = '' ) {
+        $value = trim( (string) $value );
+        if ( '' === $value ) {
+            return $fallback;
+        }
+        $hex = sanitize_hex_color( $value );
+        if ( $hex ) {
+            return $hex;
+        }
+        if ( 'transparent' === strtolower( $value ) ) {
+            return 'transparent';
+        }
+        if ( preg_match( '/^(rgba?|hsla?)\(\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*(,\s*[0-9.]+%?\s*)?\)$/i', $value ) ) {
+            return $value;
+        }
+        return $fallback;
+    }
+
+    /**
+     * Sanitize a (partial) wpog_general array. Only keys present in $in are
+     * returned, so callers can merge the result into existing settings.
+     */
+    public static function sanitize_general( array $in ) {
+        $out   = array();
+        $bools = array( 'enabled', 'eu_only', 'log_enabled', 'anonymize_ip', 'trust_proxy_headers', 'fab_enabled', 'reload_on_accept', 'autoblocker_enabled', 'tracking_enabled' );
+        foreach ( $bools as $k ) {
+            if ( array_key_exists( $k, $in ) ) {
+                $out[ $k ] = ! empty( $in[ $k ] ) ? 1 : 0;
+            }
+        }
+        if ( array_key_exists( 'consent_duration', $in ) ) {
+            $out['consent_duration'] = min( 3650, max( 1, (int) $in['consent_duration'] ) );
+        }
+        if ( array_key_exists( 'log_retention_days', $in ) ) {
+            $out['log_retention_days'] = max( 0, (int) $in['log_retention_days'] );
+        }
+        foreach ( array( 'privacy_page_id', 'cookie_page_id' ) as $k ) {
+            if ( array_key_exists( $k, $in ) ) {
+                $out[ $k ] = max( 0, (int) $in[ $k ] );
+            }
+        }
+        if ( array_key_exists( 'policy_version', $in ) ) {
+            $out['policy_version'] = substr( sanitize_text_field( (string) $in['policy_version'] ), 0, 20 );
+        }
+        foreach ( array( 'privacy_url', 'cookie_url' ) as $k ) {
+            if ( array_key_exists( $k, $in ) ) {
+                $out[ $k ] = esc_url_raw( (string) $in[ $k ], array( 'http', 'https' ) );
+            }
+        }
+        if ( array_key_exists( 'fab_position', $in ) ) {
+            $out['fab_position'] = in_array( $in['fab_position'], array( 'bottom-right', 'bottom-left' ), true ) ? $in['fab_position'] : 'bottom-right';
+        }
+        if ( array_key_exists( 'fab_label', $in ) ) {
+            $out['fab_label'] = substr( sanitize_text_field( (string) $in['fab_label'] ), 0, 40 );
+        }
+        foreach ( array( 'fab_bg_color', 'fab_text_color' ) as $k ) {
+            if ( array_key_exists( $k, $in ) ) {
+                $out[ $k ] = sanitize_hex_color( (string) $in[ $k ] ) ?: '';
+            }
+        }
+        return $out;
+    }
+
+    public static function sanitize_banner( array $in ) {
+        $d = self::defaults( 'banner' );
+        return array(
+            'position'       => in_array( $in['position'] ?? 'bottom', array( 'top', 'bottom', 'center', 'left', 'right', 'bottom-left', 'bottom-right', 'top-left', 'top-right' ), true ) ? $in['position'] : 'bottom',
+            'bg_color'       => sanitize_hex_color( (string) ( $in['bg_color'] ?? '' ) ) ?: $d['bg_color'],
+            'text_color'     => sanitize_hex_color( (string) ( $in['text_color'] ?? '' ) ) ?: $d['text_color'],
+            'primary_bg'     => sanitize_hex_color( (string) ( $in['primary_bg'] ?? '' ) ) ?: $d['primary_bg'],
+            'primary_text'   => sanitize_hex_color( (string) ( $in['primary_text'] ?? '' ) ) ?: $d['primary_text'],
+            'secondary_bg'   => sanitize_hex_color( (string) ( $in['secondary_bg'] ?? '' ) ) ?: $d['secondary_bg'],
+            'secondary_text' => sanitize_hex_color( (string) ( $in['secondary_text'] ?? '' ) ) ?: $d['secondary_text'],
+            'border_radius'  => min( 100, max( 0, (int) ( $in['border_radius'] ?? 4 ) ) ),
+            'font_size'      => min( 48, max( 8, (int) ( $in['font_size'] ?? 14 ) ) ),
+            'animation'      => in_array( $in['animation'] ?? 'slide', array( 'slide', 'fade', 'none' ), true ) ? $in['animation'] : 'slide',
+            'overlay'        => ! empty( $in['overlay'] ) ? 1 : 0,
+            'logo'           => esc_url_raw( (string) ( $in['logo'] ?? '' ), array( 'http', 'https' ) ),
+        );
+    }
+
+    public static function sanitize_popup( array $in ) {
+        $d = self::defaults( 'popup' );
+        return array(
+            'width'          => min( 2000, max( 280, (int) ( $in['width'] ?? 600 ) ) ),
+            'overlay_color'  => self::sanitize_css_color( $in['overlay_color'] ?? '', $d['overlay_color'] ),
+            'toggle_on'      => sanitize_hex_color( (string) ( $in['toggle_on'] ?? '' ) ) ?: $d['toggle_on'],
+            'toggle_off'     => sanitize_hex_color( (string) ( $in['toggle_off'] ?? '' ) ) ?: $d['toggle_off'],
+            'show_extended'  => ! empty( $in['show_extended'] ) ? 1 : 0,
+            'bg_color'       => sanitize_hex_color( (string) ( $in['bg_color'] ?? '' ) ) ?: $d['bg_color'],
+            'text_color'     => sanitize_hex_color( (string) ( $in['text_color'] ?? '' ) ) ?: $d['text_color'],
+            'primary_bg'     => sanitize_hex_color( (string) ( $in['primary_bg'] ?? '' ) ) ?: $d['primary_bg'],
+            'primary_text'   => sanitize_hex_color( (string) ( $in['primary_text'] ?? '' ) ) ?: $d['primary_text'],
+            'secondary_bg'   => sanitize_hex_color( (string) ( $in['secondary_bg'] ?? '' ) ) ?: $d['secondary_bg'],
+            'secondary_text' => sanitize_hex_color( (string) ( $in['secondary_text'] ?? '' ) ) ?: $d['secondary_text'],
+            'border_radius'  => min( 100, max( 0, (int) ( $in['border_radius'] ?? 4 ) ) ),
+            'font_size'      => min( 48, max( 8, (int) ( $in['font_size'] ?? 14 ) ) ),
+        );
+    }
+
+    public static function sanitize_categories( array $in ) {
+        $out = self::defaults( 'categories' );
+        foreach ( self::CATEGORY_KEYS as $k ) {
+            $row     = is_array( $in[ $k ] ?? null ) ? $in[ $k ] : array();
+            $cookies = array();
+            if ( ! empty( $row['cookies'] ) && is_array( $row['cookies'] ) ) {
+                foreach ( $row['cookies'] as $c ) {
+                    if ( ! is_array( $c ) || empty( $c['name'] ) ) {
+                        continue;
+                    }
+                    $cookies[] = array(
+                        'name'     => sanitize_text_field( (string) $c['name'] ),
+                        'provider' => sanitize_text_field( (string) ( $c['provider'] ?? '' ) ),
+                        'duration' => sanitize_text_field( (string) ( $c['duration'] ?? '' ) ),
+                        'purpose'  => sanitize_text_field( (string) ( $c['purpose'] ?? '' ) ),
+                        'privacy'  => esc_url_raw( (string) ( $c['privacy'] ?? '' ), array( 'http', 'https' ) ),
+                    );
+                }
+            }
+            $out[ $k ] = array(
+                'name'        => sanitize_text_field( (string) ( $row['name'] ?? $out[ $k ]['name'] ) ),
+                'description' => sanitize_textarea_field( (string) ( $row['description'] ?? $out[ $k ]['description'] ) ),
+                'extended'    => wp_kses_post( (string) ( $row['extended'] ?? '' ) ),
+                'cookies'     => $cookies,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Sanitize the custom-script list. Custom scripts are arbitrary JavaScript
+     * by definition, so callers MUST check current_user_can( 'unfiltered_html' )
+     * before persisting the result.
+     */
+    public static function sanitize_scripts( array $in ) {
+        $out = array();
+        foreach ( $in as $row ) {
+            if ( ! is_array( $row ) || ( empty( $row['name'] ) && empty( $row['content'] ) ) ) {
+                continue;
+            }
+            $type = in_array( $row['type'] ?? 'inline', array( 'inline', 'src', 'iframe' ), true ) ? $row['type'] : 'inline';
+            if ( 'inline' === $type ) {
+                // Raw JS. Neutralise a closing </script> so the snippet cannot
+                // break out of the wrapper tag it is printed into.
+                $content = preg_replace( '#</(script)#i', '<\\/$1', (string) ( $row['content'] ?? '' ) );
+            } else {
+                $content = esc_url_raw( (string) ( $row['content'] ?? '' ), array( 'http', 'https' ) );
+            }
+            $out[] = array(
+                'name'     => sanitize_text_field( (string) ( $row['name'] ?? '' ) ),
+                'category' => in_array( $row['category'] ?? 'marketing', self::CATEGORY_KEYS, true ) ? $row['category'] : 'marketing',
+                'type'     => $type,
+                'content'  => $content,
+                'position' => in_array( $row['position'] ?? 'head', array( 'head', 'body-top', 'body-bottom' ), true ) ? $row['position'] : 'head',
+                'active'   => ! empty( $row['active'] ) ? 1 : 0,
+            );
+        }
+        return $out;
+    }
+
+    /** Translation keys whose values may contain limited HTML (links). */
+    const HTML_STRING_KEYS = array( 'banner_message', 'form_privacy_checkbox_label', 'terms_terms_checkbox_label', 'terms_privacy_checkbox_label' );
+
+    public static function sanitize_translations( array $in ) {
+        $out = array();
+        foreach ( array_keys( self::default_strings() ) as $k ) {
+            if ( ! isset( $in[ $k ] ) || ! is_scalar( $in[ $k ] ) || '' === trim( (string) $in[ $k ] ) ) {
+                continue;
+            }
+            $out[ $k ] = in_array( $k, self::HTML_STRING_KEYS, true )
+                ? wp_kses_post( (string) $in[ $k ] )
+                : sanitize_textarea_field( (string) $in[ $k ] );
+        }
+        return $out;
+    }
+
+    /**
+     * Generic sanitizer for the form_consent / terms_consent groups, driven by
+     * the type of each default value. Unknown keys are dropped.
+     */
+    public static function sanitize_by_defaults( $group, array $in ) {
+        $defaults = self::defaults( $group );
+        $enums    = array(
+            'cf7_position'         => array( 'before_submit', 'after_fields', 'manual' ),
+            'wc_checkout_position' => array( 'before_submit', 'before_terms', 'after_terms' ),
+        );
+        $out = array();
+        foreach ( $defaults as $k => $default ) {
+            if ( ! array_key_exists( $k, $in ) ) {
+                continue;
+            }
+            $v = $in[ $k ];
+            if ( isset( $enums[ $k ] ) ) {
+                $out[ $k ] = in_array( $v, $enums[ $k ], true ) ? $v : $default;
+            } elseif ( is_array( $default ) ) {
+                $out[ $k ] = array_values( array_filter( array_map( 'intval', (array) $v ) ) );
+            } elseif ( is_int( $default ) ) {
+                $out[ $k ] = max( 0, (int) $v );
+            } elseif ( false !== strpos( $k, 'label' ) ) {
+                $out[ $k ] = wp_kses_post( (string) $v );
+            } else {
+                $out[ $k ] = sanitize_text_field( (string) $v );
+            }
+        }
+        return $out;
     }
 
     /**
@@ -255,11 +510,18 @@ class WPOG_Settings {
      * Get a user-facing string, with admin override > .po translation > English default.
      */
     public static function string( $key ) {
-        $overrides = get_option( 'wpog_translations', array() );
-        if ( is_array( $overrides ) && ! empty( $overrides[ $key ] ) ) {
-            return $overrides[ $key ];
+        if ( null === self::$strings_cache ) {
+            $overrides = get_option( 'wpog_translations', array() );
+            self::$strings_cache = array(
+                'overrides' => is_array( $overrides ) ? $overrides : array(),
+                'defaults'  => self::default_strings(),
+            );
         }
-        $defaults = self::default_strings();
+        $overrides = self::$strings_cache['overrides'];
+        if ( ! empty( $overrides[ $key ] ) && is_scalar( $overrides[ $key ] ) ) {
+            return (string) $overrides[ $key ];
+        }
+        $defaults = self::$strings_cache['defaults'];
         $default  = isset( $defaults[ $key ] ) ? $defaults[ $key ] : '';
         // Allow .po/.mo translation of the English default.
         // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText

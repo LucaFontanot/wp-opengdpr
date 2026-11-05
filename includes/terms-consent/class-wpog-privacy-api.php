@@ -114,15 +114,32 @@ class WPOG_Privacy_API {
             $messages[] = __( 'Your GDPR consent records were anonymised (IP address and user agent removed). The consent proof itself is retained as a legal-accountability record (GDPR Art. 7).', 'wp-opengdpr' );
         }
 
+        $removed = false;
+
         // Also remove the consent user-meta keys we control.
         if ( $user_id ) {
-            delete_user_meta( $user_id, WPOG_Terms_Registration::META_MARKETING );
-            delete_user_meta( $user_id, WPOG_Terms_Registration::META_PRIVACY );
-            delete_user_meta( $user_id, WPOG_Terms_Registration::META_IP );
+            foreach ( array( WPOG_Terms_Registration::META_MARKETING, WPOG_Terms_Registration::META_PRIVACY, WPOG_Terms_Registration::META_IP, WPOG_Terms_Registration::META_DATE ) as $meta_key ) {
+                if ( delete_user_meta( $user_id, $meta_key ) ) {
+                    $removed = true;
+                }
+            }
+        }
+
+        // The (anonymised) IP mirrored to order meta at checkout is personal
+        // data too: remove it from every order tied to this person.
+        if ( function_exists( 'wc_get_order' ) ) {
+            foreach ( $order_ids as $order_id ) {
+                $order = wc_get_order( $order_id );
+                if ( $order && '' !== (string) $order->get_meta( '_wpog_consent_ip' ) ) {
+                    $order->delete_meta_data( '_wpog_consent_ip' );
+                    $order->save();
+                    $removed = true;
+                }
+            }
         }
 
         return array(
-            'items_removed'  => false,
+            'items_removed'  => $removed,
             'items_retained' => $retained,
             'messages'       => $messages,
             'done'           => true,

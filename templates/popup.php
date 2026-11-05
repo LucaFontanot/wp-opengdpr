@@ -10,7 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 $cats    = WPOG_Settings::get( 'categories' );
 $popup   = WPOG_Settings::get( 'popup' );
 $general = WPOG_Settings::get( 'general' );
-$current = WPOG_Consent::allowed_categories();
+// Toggles are rendered unchecked (cache-safe) and synced with the visitor's
+// cookie client-side by wpog-consent.js.
+$current = array( 'necessary' => true, 'functional' => false, 'analytics' => false, 'marketing' => false );
 $show_ext = ! empty( $popup['show_extended'] );
 
 $labels = array(

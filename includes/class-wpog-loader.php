@@ -15,6 +15,7 @@ class WPOG_Loader {
     public static function load() {
         // Foundations.
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-settings.php';
+        WPOG_Settings::init_cache();
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-logger.php';
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-consent.php';
         require_once WPOG_PLUGIN_DIR . 'includes/class-wpog-cookie-database.php';

@@ -214,141 +214,68 @@ class WPOG_Admin {
 
             case 'cookie_settings':
                 $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
-                WPOG_Settings::update( 'general', array(
-                    'enabled'             => ! empty( $in['enabled'] ) ? 1 : 0,
-                    'consent_duration'    => max( 1, (int) ( $in['consent_duration'] ?? 180 ) ),
-                    'policy_version'      => sanitize_text_field( $in['policy_version'] ?? '1.0' ),
-                    'eu_only'             => ! empty( $in['eu_only'] ) ? 1 : 0,
-                    'log_enabled'         => ! empty( $in['log_enabled'] ) ? 1 : 0,
-                    'anonymize_ip'        => ! empty( $in['anonymize_ip'] ) ? 1 : 0,
-                    'log_retention_days'  => max( 0, (int) ( $in['log_retention_days'] ?? 365 ) ),
-                    'fab_enabled'         => ! empty( $in['fab_enabled'] ) ? 1 : 0,
-                    'fab_position'        => in_array( $in['fab_position'] ?? 'bottom-right', array( 'bottom-right', 'bottom-left' ), true ) ? $in['fab_position'] : 'bottom-right',
-                    'fab_label'           => sanitize_text_field( $in['fab_label'] ?? '🍪' ),
-                    'fab_bg_color'        => sanitize_hex_color( $in['fab_bg_color'] ?? '' ) ?: '',
-                    'fab_text_color'      => sanitize_hex_color( $in['fab_text_color'] ?? '' ) ?: '',
-                    'reload_on_accept'    => ! empty( $in['reload_on_accept'] ) ? 1 : 0,
-                    'autoblocker_enabled' => ! empty( $in['autoblocker_enabled'] ) ? 1 : 0,
-                    'tracking_enabled'    => ! empty( $in['tracking_enabled'] ) ? 1 : 0,
-                ) );
+                // Unchecked checkboxes are absent from POST: default them to 0.
+                foreach ( array( 'enabled', 'eu_only', 'log_enabled', 'anonymize_ip', 'trust_proxy_headers', 'fab_enabled', 'reload_on_accept', 'autoblocker_enabled', 'tracking_enabled' ) as $flag ) {
+                    if ( ! isset( $in[ $flag ] ) ) {
+                        $in[ $flag ] = 0;
+                    }
+                }
+                $in += array(
+                    'consent_duration'   => 180,
+                    'policy_version'     => '1.0',
+                    'log_retention_days' => 365,
+                    'fab_position'       => 'bottom-right',
+                    'fab_label'          => '🍪',
+                    'fab_bg_color'       => '',
+                    'fab_text_color'     => '',
+                );
+                $clean = WPOG_Settings::sanitize_general( $in );
+                // Only the keys that belong to this screen.
+                unset( $clean['privacy_url'], $clean['cookie_url'], $clean['privacy_page_id'], $clean['cookie_page_id'] );
+                WPOG_Settings::update( 'general', $clean );
                 break;
 
             case 'banner':
                 $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
-                WPOG_Settings::replace( 'banner', array(
-                    'position'      => in_array( $in['position'] ?? 'bottom', array( 'top', 'bottom', 'center', 'left', 'right', 'bottom-left', 'bottom-right', 'top-left', 'top-right' ), true ) ? $in['position'] : 'bottom',
-                    'bg_color'      => sanitize_hex_color( $in['bg_color'] ?? '#ffffff' ),
-                    'text_color'    => sanitize_hex_color( $in['text_color'] ?? '#333333' ),
-                    'primary_bg'    => sanitize_hex_color( $in['primary_bg'] ?? '#0073aa' ),
-                    'primary_text'  => sanitize_hex_color( $in['primary_text'] ?? '#ffffff' ),
-                    'secondary_bg'  => sanitize_hex_color( $in['secondary_bg'] ?? '#f0f0f0' ),
-                    'secondary_text'=> sanitize_hex_color( $in['secondary_text'] ?? '#333333' ),
-                    'border_radius' => max( 0, (int) ( $in['border_radius'] ?? 4 ) ),
-                    'font_size'     => max( 8, (int) ( $in['font_size'] ?? 14 ) ),
-                    'animation'     => in_array( $in['animation'] ?? 'slide', array( 'slide', 'fade', 'none' ), true ) ? $in['animation'] : 'slide',
-                    'overlay'       => ! empty( $in['overlay'] ) ? 1 : 0,
-                    'logo'          => esc_url_raw( $in['logo'] ?? '' ),
-                ) );
+                WPOG_Settings::replace( 'banner', WPOG_Settings::sanitize_banner( $in ) );
                 break;
 
             case 'popup':
                 $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
-                WPOG_Settings::replace( 'popup', array(
-                    'width'         => max( 280, (int) ( $in['width'] ?? 600 ) ),
-                    'overlay_color' => sanitize_text_field( $in['overlay_color'] ?? 'rgba(0,0,0,0.5)' ),
-                    'toggle_on'     => sanitize_hex_color( $in['toggle_on'] ?? '#0073aa' ),
-                    'toggle_off'    => sanitize_hex_color( $in['toggle_off'] ?? '#cccccc' ),
-                    'show_extended' => ! empty( $in['show_extended'] ) ? 1 : 0,
-                    'bg_color'      => sanitize_hex_color( $in['bg_color'] ?? '#ffffff' ),
-                    'text_color'    => sanitize_hex_color( $in['text_color'] ?? '#333333' ),
-                    'primary_bg'    => sanitize_hex_color( $in['primary_bg'] ?? '#0073aa' ),
-                    'primary_text'  => sanitize_hex_color( $in['primary_text'] ?? '#ffffff' ),
-                    'secondary_bg'  => sanitize_hex_color( $in['secondary_bg'] ?? '#f0f0f0' ),
-                    'secondary_text'=> sanitize_hex_color( $in['secondary_text'] ?? '#333333' ),
-                    'border_radius' => max( 0, (int) ( $in['border_radius'] ?? 4 ) ),
-                    'font_size'     => max( 8, (int) ( $in['font_size'] ?? 14 ) ),
-                ) );
+                WPOG_Settings::replace( 'popup', WPOG_Settings::sanitize_popup( $in ) );
                 break;
 
             case 'categories':
-                $in   = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
-                $out  = WPOG_Settings::defaults( 'categories' );
-                foreach ( array( 'necessary', 'functional', 'analytics', 'marketing' ) as $k ) {
-                    $row = (array) ( $in[ $k ] ?? array() );
-                    $cookies = array();
-                    if ( ! empty( $row['cookies'] ) && is_array( $row['cookies'] ) ) {
-                        foreach ( $row['cookies'] as $c ) {
-                            if ( empty( $c['name'] ) ) { continue; }
-                            $cookies[] = array(
-                                'name'     => sanitize_text_field( $c['name'] ),
-                                'provider' => sanitize_text_field( $c['provider'] ?? '' ),
-                                'duration' => sanitize_text_field( $c['duration'] ?? '' ),
-                                'purpose'  => sanitize_text_field( $c['purpose'] ?? '' ),
-                                'privacy'  => esc_url_raw( $c['privacy'] ?? '' ),
-                            );
-                        }
-                    }
-                    $out[ $k ] = array(
-                        'name'        => sanitize_text_field( $row['name'] ?? $out[ $k ]['name'] ),
-                        'description' => sanitize_textarea_field( $row['description'] ?? $out[ $k ]['description'] ),
-                        'extended'    => wp_kses_post( $row['extended'] ?? '' ),
-                        'cookies'     => $cookies,
-                    );
-                }
-                WPOG_Settings::replace( 'categories', $out );
+                $in = wp_unslash( (array) ( $_POST['wpog'] ?? array() ) );
+                WPOG_Settings::replace( 'categories', WPOG_Settings::sanitize_categories( $in ) );
                 break;
 
             case 'scripts':
-                $in  = wp_unslash( (array) ( $_POST['wpog']['scripts'] ?? array() ) );
-                $out = array();
-                foreach ( $in as $row ) {
-                    if ( empty( $row['name'] ) && empty( $row['content'] ) ) { continue; }
-                    $out[] = array(
-                        'name'     => sanitize_text_field( $row['name'] ?? '' ),
-                        'category' => in_array( $row['category'] ?? 'marketing', array( 'necessary','functional','analytics','marketing' ), true ) ? $row['category'] : 'marketing',
-                        'type'     => in_array( $row['type'] ?? 'inline', array( 'inline','src','iframe' ), true ) ? $row['type'] : 'inline',
-                        'content'  => 'inline' === ( $row['type'] ?? 'inline' )
-                            ? ( current_user_can( 'unfiltered_html' )
-                                ? wp_unslash( $row['content'] ?? '' )
-                                : wp_kses_post( $row['content'] ?? '' ) )
-                            : esc_url_raw( $row['content'] ?? '' ),
-                        'position' => in_array( $row['position'] ?? 'head', array( 'head','body-top','body-bottom' ), true ) ? $row['position'] : 'head',
-                        'active'   => ! empty( $row['active'] ) ? 1 : 0,
-                    );
+                // Custom scripts are arbitrary JavaScript (inline or external
+                // src) executed on every visitor's page AND shipped to external
+                // sites via the cross-domain bridge: require unfiltered_html,
+                // exactly like WordPress core does for raw HTML/JS.
+                if ( ! current_user_can( 'unfiltered_html' ) ) {
+                    wp_die( esc_html__( 'You are not allowed to manage custom scripts (unfiltered_html capability required).', 'wp-opengdpr' ), 403 );
                 }
-                update_option( 'wpog_scripts', $out );
+                // $_POST is unslashed exactly once here (the previous code
+                // unslashed inline JS twice, stripping legitimate backslashes
+                // such as regex escapes "\d" or "\n" in strings).
+                $in = wp_unslash( (array) ( $_POST['wpog']['scripts'] ?? array() ) );
+                update_option( 'wpog_scripts', WPOG_Settings::sanitize_scripts( $in ) );
                 break;
 
             case 'translations':
-                $in   = wp_unslash( (array) ( $_POST['wpog']['translations'] ?? array() ) );
-                $keys = array_keys( WPOG_Settings::default_strings() );
-                $out  = array();
-                $html_fields = array( 'banner_message', 'form_privacy_checkbox_label', 'terms_terms_checkbox_label', 'terms_privacy_checkbox_label' );
-                foreach ( $keys as $k ) {
-                    if ( isset( $in[ $k ] ) && '' !== trim( (string) $in[ $k ] ) ) {
-                        $out[ $k ] = in_array( $k, $html_fields, true )
-                            ? wp_kses_post( $in[ $k ] )
-                            : sanitize_textarea_field( $in[ $k ] );
-                    }
-                }
-                update_option( 'wpog_translations', $out );
+                $in = wp_unslash( (array) ( $_POST['wpog']['translations'] ?? array() ) );
+                update_option( 'wpog_translations', WPOG_Settings::sanitize_translations( $in ) );
 
                 if ( ! empty( $_POST['wpog_reset_all'] ) ) {
                     delete_option( 'wpog_translations' );
                 }
                 if ( ! empty( $_FILES['wpog_import']['tmp_name'] ) ) {
-                    $json = file_get_contents( $_FILES['wpog_import']['tmp_name'] );
-                    $data = json_decode( $json, true );
+                    $data = self::read_uploaded_json( 'wpog_import' );
                     if ( is_array( $data ) ) {
-                        $clean = array();
-                        foreach ( $keys as $k ) {
-                            if ( isset( $data[ $k ] ) ) {
-                                $clean[ $k ] = in_array( $k, $html_fields, true )
-                                    ? wp_kses_post( (string) $data[ $k ] )
-                                    : sanitize_textarea_field( (string) $data[ $k ] );
-                            }
-                        }
-                        update_option( 'wpog_translations', $clean );
+                        update_option( 'wpog_translations', WPOG_Settings::sanitize_translations( $data ) );
                     }
                 }
                 break;
@@ -468,21 +395,40 @@ class WPOG_Admin {
                 break;
 
             case 'settings_import':
-                if ( ! empty( $_FILES['wpog_settings_file']['tmp_name'] ) ) {
-                    $json = file_get_contents( $_FILES['wpog_settings_file']['tmp_name'] );
-                    $data = json_decode( $json, true );
-                    if ( is_array( $data ) ) {
-                        foreach ( array( 'general', 'banner', 'popup', 'categories', 'scripts', 'translations', 'form_consent', 'terms_consent' ) as $group ) {
-                            if ( isset( $data[ $group ] ) && is_array( $data[ $group ] ) ) {
-                                update_option( 'wpog_' . $group, $data[ $group ] );
-                            }
+                // Every imported group goes through the SAME sanitizers used by
+                // the admin forms. Previously the raw JSON was written straight
+                // into the options, allowing stored XSS / CSS injection and
+                // bypassing the unfiltered_html requirement for custom scripts.
+                $data = self::read_uploaded_json( 'wpog_settings_file' );
+                if ( is_array( $data ) ) {
+                    if ( isset( $data['general'] ) && is_array( $data['general'] ) ) {
+                        update_option( 'wpog_general', WPOG_Settings::sanitize_general( $data['general'] ) );
+                    }
+                    if ( isset( $data['banner'] ) && is_array( $data['banner'] ) ) {
+                        update_option( 'wpog_banner', WPOG_Settings::sanitize_banner( $data['banner'] ) );
+                    }
+                    if ( isset( $data['popup'] ) && is_array( $data['popup'] ) ) {
+                        update_option( 'wpog_popup', WPOG_Settings::sanitize_popup( $data['popup'] ) );
+                    }
+                    if ( isset( $data['categories'] ) && is_array( $data['categories'] ) ) {
+                        update_option( 'wpog_categories', WPOG_Settings::sanitize_categories( $data['categories'] ) );
+                    }
+                    if ( isset( $data['scripts'] ) && is_array( $data['scripts'] ) && current_user_can( 'unfiltered_html' ) ) {
+                        update_option( 'wpog_scripts', WPOG_Settings::sanitize_scripts( $data['scripts'] ) );
+                    }
+                    if ( isset( $data['translations'] ) && is_array( $data['translations'] ) ) {
+                        update_option( 'wpog_translations', WPOG_Settings::sanitize_translations( $data['translations'] ) );
+                    }
+                    foreach ( array( 'form_consent', 'terms_consent' ) as $group ) {
+                        if ( isset( $data[ $group ] ) && is_array( $data[ $group ] ) ) {
+                            update_option( 'wpog_' . $group, WPOG_Settings::sanitize_by_defaults( $group, $data[ $group ] ) );
                         }
-                        if ( isset( $data['cookie_policy'] ) ) {
-                            update_option( 'wpog_cookie_policy', wp_kses_post( (string) $data['cookie_policy'] ) );
-                        }
-                        if ( isset( $data['cross_domains'] ) && is_array( $data['cross_domains'] ) ) {
-                            update_option( 'wpog_cross_domains', $data['cross_domains'] );
-                        }
+                    }
+                    if ( isset( $data['cookie_policy'] ) && is_scalar( $data['cookie_policy'] ) ) {
+                        update_option( 'wpog_cookie_policy', wp_kses_post( (string) $data['cookie_policy'] ) );
+                    }
+                    if ( isset( $data['cross_domains'] ) && is_array( $data['cross_domains'] ) ) {
+                        WPOG_Cross_Domain::save_domains( $data['cross_domains'] );
                     }
                 }
                 wp_safe_redirect( add_query_arg( array( 'updated' => '1' ), admin_url( 'admin.php?page=wpog-settings-io' ) ) );
@@ -614,6 +560,61 @@ class WPOG_Admin {
     }
 
     /**
+     * Read and decode an uploaded JSON file safely (upload validated, size capped).
+     *
+     * @return array|null
+     */
+    private static function read_uploaded_json( $field ) {
+        if ( empty( $_FILES[ $field ]['tmp_name'] ) || ! empty( $_FILES[ $field ]['error'] ) ) {
+            return null;
+        }
+        $tmp = $_FILES[ $field ]['tmp_name'];
+        if ( ! is_uploaded_file( $tmp ) || filesize( $tmp ) > 2 * MB_IN_BYTES ) {
+            return null;
+        }
+        $data = json_decode( (string) file_get_contents( $tmp ), true );
+        return is_array( $data ) ? $data : null;
+    }
+
+    /**
+     * Stream a CSV export in fixed-size batches so huge log tables never get
+     * loaded into PHP memory at once (the old per_page=100000 both exhausted
+     * memory on large sites and silently truncated exports above 100k rows).
+     *
+     * @param callable $query   function( array $args ) → array( 'rows' => [...] )
+     * @param array    $args    Query filters.
+     * @param string   $filename
+     * @param array    $header
+     * @param callable $row_map function( object $row ) → array
+     */
+    private static function stream_csv( $query, array $args, $filename, array $header, $row_map ) {
+        if ( function_exists( 'set_time_limit' ) ) {
+            @set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+        }
+        nocache_headers();
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=' . $filename );
+        header( 'X-Content-Type-Options: nosniff' );
+        $fh = fopen( 'php://output', 'w' );
+        fputcsv( $fh, $header );
+        $batch = 2000;
+        $page  = 1;
+        do {
+            $res  = call_user_func( $query, array_merge( $args, array( 'per_page' => $batch, 'page' => $page ) ) );
+            $rows = isset( $res['rows'] ) ? (array) $res['rows'] : array();
+            foreach ( $rows as $r ) {
+                fputcsv( $fh, call_user_func( $row_map, $r ) );
+            }
+            if ( function_exists( 'flush' ) ) {
+                flush();
+            }
+            $page++;
+        } while ( count( $rows ) === $batch );
+        fclose( $fh );
+        exit;
+    }
+
+    /**
      * Neutralise CSV formula injection by prefixing dangerous leading characters with a single quote.
      * Applies to any visitor-controlled string field written to a spreadsheet-bound CSV.
      */
@@ -627,130 +628,122 @@ class WPOG_Admin {
 
     public static function export_logs() {
         if ( ! current_user_can( self::CAP ) ) {
-            wp_die( 'Forbidden' );
+            wp_die( 'Forbidden', 403 );
         }
         check_admin_referer( self::NONCE );
 
         $args = array(
-            'from'     => sanitize_text_field( $_GET['from'] ?? '' ),
-            'to'       => sanitize_text_field( $_GET['to'] ?? '' ),
-            'action'   => sanitize_text_field( $_GET['filter_action'] ?? '' ),
-            'per_page' => 100000,
-            'page'     => 1,
+            'from'   => self::sanitize_date( $_GET['from'] ?? '' ),
+            'to'     => self::sanitize_date( $_GET['to'] ?? '' ),
+            'action' => sanitize_key( $_GET['filter_action'] ?? '' ),
         );
-        $res = WPOG_Logger::query( $args );
-
-        nocache_headers();
-        header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=wpog-consent-logs.csv' );
-        $fh = fopen( 'php://output', 'w' );
-        fputcsv( $fh, array( 'id', 'consent_id', 'date', 'ip', 'action', 'necessary', 'functional', 'analytics', 'marketing', 'policy_version', 'user_agent' ) );
-        foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array(
-                $r->id,
-                self::sanitize_csv_field( $r->consent_id ),
-                $r->consent_date,
-                $r->ip_address,
-                $r->action,
-                $r->necessary,
-                $r->functional,
-                $r->analytics,
-                $r->marketing,
-                $r->policy_version,
-                self::sanitize_csv_field( $r->user_agent ),
-            ) );
-        }
-        fclose( $fh );
-        exit;
+        self::stream_csv(
+            array( 'WPOG_Logger', 'query' ),
+            $args,
+            'wpog-consent-logs.csv',
+            array( 'id', 'consent_id', 'date', 'ip', 'action', 'necessary', 'functional', 'analytics', 'marketing', 'policy_version', 'user_agent' ),
+            function ( $r ) {
+                return array(
+                    $r->id,
+                    self::sanitize_csv_field( $r->consent_id ),
+                    $r->consent_date,
+                    $r->ip_address,
+                    $r->action,
+                    $r->necessary,
+                    $r->functional,
+                    $r->analytics,
+                    $r->marketing,
+                    self::sanitize_csv_field( $r->policy_version ),
+                    self::sanitize_csv_field( $r->user_agent ),
+                );
+            }
+        );
     }
 
     public static function export_form_logs() {
         if ( ! current_user_can( self::CAP ) ) {
-            wp_die( 'Forbidden' );
+            wp_die( 'Forbidden', 403 );
         }
         check_admin_referer( self::NONCE );
 
         $args = array(
-            'from'          => sanitize_text_field( $_GET['from'] ?? '' ),
-            'to'            => sanitize_text_field( $_GET['to'] ?? '' ),
-            'form_id'       => sanitize_text_field( $_GET['form_id'] ?? '' ),
+            'from'          => self::sanitize_date( $_GET['from'] ?? '' ),
+            'to'            => self::sanitize_date( $_GET['to'] ?? '' ),
+            'form_id'       => sanitize_text_field( wp_unslash( $_GET['form_id'] ?? '' ) ),
             'consent_given' => isset( $_GET['consent_given'] ) && '' !== $_GET['consent_given'] ? (int) $_GET['consent_given'] : '',
-            'per_page'      => 100000,
-            'page'          => 1,
         );
-        $res = WPOG_Form_Consent_Logger::query( $args );
-
-        nocache_headers();
-        header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=wpog-form-consent-logs.csv' );
-        $fh = fopen( 'php://output', 'w' );
-        fputcsv( $fh, array( 'id', 'consent_id', 'date', 'form_id', 'form_type', 'form_title', 'page_url', 'consent_given', 'marketing_consent', 'consent_text', 'privacy_version', 'ip', 'user_agent' ) );
-        foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array(
-                $r->id,
-                self::sanitize_csv_field( $r->consent_id ),
-                $r->consent_date,
-                $r->form_id,
-                $r->form_type,
-                self::sanitize_csv_field( $r->form_title ),
-                self::sanitize_csv_field( $r->page_url ),
-                $r->consent_given,
-                $r->marketing_consent,
-                self::sanitize_csv_field( $r->consent_text ),
-                $r->privacy_version,
-                $r->ip_address,
-                self::sanitize_csv_field( $r->user_agent ),
-            ) );
-        }
-        fclose( $fh );
-        exit;
+        self::stream_csv(
+            array( 'WPOG_Form_Consent_Logger', 'query' ),
+            $args,
+            'wpog-form-consent-logs.csv',
+            array( 'id', 'consent_id', 'date', 'form_id', 'form_type', 'form_title', 'page_url', 'consent_given', 'marketing_consent', 'consent_text', 'privacy_version', 'ip', 'user_agent' ),
+            function ( $r ) {
+                return array(
+                    $r->id,
+                    self::sanitize_csv_field( $r->consent_id ),
+                    $r->consent_date,
+                    self::sanitize_csv_field( $r->form_id ),
+                    self::sanitize_csv_field( $r->form_type ),
+                    self::sanitize_csv_field( $r->form_title ),
+                    self::sanitize_csv_field( $r->page_url ),
+                    $r->consent_given,
+                    $r->marketing_consent,
+                    self::sanitize_csv_field( $r->consent_text ),
+                    self::sanitize_csv_field( $r->privacy_version ),
+                    $r->ip_address,
+                    self::sanitize_csv_field( $r->user_agent ),
+                );
+            }
+        );
     }
 
     public static function export_terms_logs() {
         if ( ! current_user_can( self::CAP ) ) {
-            wp_die( 'Forbidden' );
+            wp_die( 'Forbidden', 403 );
         }
         check_admin_referer( self::NONCE );
 
         $args = array(
-            'from'          => sanitize_text_field( $_GET['from'] ?? '' ),
-            'to'            => sanitize_text_field( $_GET['to'] ?? '' ),
-            'document_type' => sanitize_text_field( $_GET['document_type'] ?? '' ),
-            'version'       => sanitize_text_field( $_GET['version'] ?? '' ),
+            'from'          => self::sanitize_date( $_GET['from'] ?? '' ),
+            'to'            => self::sanitize_date( $_GET['to'] ?? '' ),
+            'document_type' => sanitize_key( $_GET['document_type'] ?? '' ),
+            'version'       => sanitize_text_field( wp_unslash( $_GET['version'] ?? '' ) ),
             'order_id'      => isset( $_GET['order_id'] ) ? (int) $_GET['order_id'] : '',
-            'per_page'      => 100000,
-            'page'          => 1,
         );
-        $res = WPOG_Terms_Consent_Logger::query( $args );
-
-        nocache_headers();
-        header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=wpog-terms-consent-logs.csv' );
-        $fh = fopen( 'php://output', 'w' );
-        fputcsv( $fh, array( 'id', 'consent_id', 'date', 'order_id', 'user_id', 'document_type', 'document_version', 'document_hash', 'consent_given', 'context', 'integration', 'page_url', 'ip', 'user_agent' ) );
-        foreach ( $res['rows'] as $r ) {
-            fputcsv( $fh, array(
-                $r->id,
-                self::sanitize_csv_field( $r->consent_id ),
-                $r->consent_date,
-                $r->order_id,
-                $r->user_id,
-                $r->document_type,
-                $r->document_version,
-                $r->document_hash,
-                $r->consent_given,
-                self::sanitize_csv_field( $r->context ),
-                $r->integration,
-                self::sanitize_csv_field( $r->page_url ),
-                $r->ip_address,
-                self::sanitize_csv_field( $r->user_agent ),
-            ) );
-        }
-        fclose( $fh );
-        exit;
+        self::stream_csv(
+            array( 'WPOG_Terms_Consent_Logger', 'query' ),
+            $args,
+            'wpog-terms-consent-logs.csv',
+            array( 'id', 'consent_id', 'date', 'order_id', 'user_id', 'document_type', 'document_version', 'document_hash', 'consent_given', 'context', 'integration', 'page_url', 'ip', 'user_agent' ),
+            function ( $r ) {
+                return array(
+                    $r->id,
+                    self::sanitize_csv_field( $r->consent_id ),
+                    $r->consent_date,
+                    $r->order_id,
+                    $r->user_id,
+                    $r->document_type,
+                    self::sanitize_csv_field( $r->document_version ),
+                    $r->document_hash,
+                    $r->consent_given,
+                    self::sanitize_csv_field( $r->context ),
+                    $r->integration,
+                    self::sanitize_csv_field( $r->page_url ),
+                    $r->ip_address,
+                    self::sanitize_csv_field( $r->user_agent ),
+                );
+            }
+        );
     }
 
-    public static function export_translations() {        if ( ! current_user_can( self::CAP ) ) {
+    /** Accept only YYYY-MM-DD dates for log filters. */
+    private static function sanitize_date( $value ) {
+        $value = sanitize_text_field( wp_unslash( (string) $value ) );
+        return preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ? $value : '';
+    }
+
+    public static function export_translations() {
+        if ( ! current_user_can( self::CAP ) ) {
             wp_die( 'Forbidden' );
         }
         check_admin_referer( self::NONCE );

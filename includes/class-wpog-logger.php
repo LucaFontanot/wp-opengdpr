@@ -70,14 +70,29 @@ class WPOG_Logger {
             ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
             : '';
 
-        if ( apply_filters( 'wpog_trust_proxy_headers', false ) ) {
-            foreach ( array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR' ) as $key ) {
+        // Opt-in via Cookie Consent → Settings ("Site behind a proxy / CDN"),
+        // overridable in code with the wpog_trust_proxy_headers filter.
+        $trust = (bool) WPOG_Settings::get( 'general', 'trust_proxy_headers', 0 );
+        if ( apply_filters( 'wpog_trust_proxy_headers', $trust ) ) {
+            // Headers that a proxy SETS (overwriting any client-supplied value)
+            // come first: they cannot be spoofed when traffic goes through the
+            // proxy. HTTP_CLIENT_IP is never trusted (always client-controlled).
+            foreach ( array( 'HTTP_CF_CONNECTING_IP', 'HTTP_TRUE_CLIENT_IP', 'HTTP_X_REAL_IP' ) as $key ) {
                 if ( ! empty( $_SERVER[ $key ] ) ) {
-                    $candidate = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
-                    if ( strpos( $candidate, ',' ) !== false ) {
-                        $candidate = trim( explode( ',', $candidate )[0] );
-                    }
+                    $candidate = trim( sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) );
                     if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+                        return $candidate;
+                    }
+                }
+            }
+            // X-Forwarded-For: proxies APPEND to it, so the left-most entries
+            // may be forged by the client. Walk from the RIGHT and take the
+            // first public address — the one written by the edge proxy —
+            // skipping private/reserved hops added by internal load balancers.
+            if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+                $hops = array_map( 'trim', explode( ',', sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) ) );
+                foreach ( array_reverse( $hops ) as $candidate ) {
+                    if ( filter_var( $candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
                         return $candidate;
                     }
                 }
@@ -103,6 +118,13 @@ class WPOG_Logger {
             ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 )
             : '';
 
+        // Untrusted, client-supplied payload: coerce every field to a scalar.
+        $cats           = isset( $data['categories'] ) && is_array( $data['categories'] ) ? $data['categories'] : array();
+        $data['categories'] = $cats;
+        $data['id']      = isset( $data['id'] ) && is_scalar( $data['id'] ) ? preg_replace( '/[^A-Za-z0-9\-]/', '', (string) $data['id'] ) : '';
+        $data['version'] = isset( $data['version'] ) && is_scalar( $data['version'] ) ? sanitize_text_field( (string) $data['version'] ) : '';
+        $data['action']  = isset( $data['action'] ) && is_string( $data['action'] ) ? $data['action'] : '';
+
         $row = array(
             'consent_id'     => substr( (string) ( $data['id'] ?? '' ), 0, 64 ),
             'consent_date'   => current_time( 'mysql' ),
@@ -125,8 +147,16 @@ class WPOG_Logger {
         if ( $days <= 0 ) {
             return;
         }
-        $table = self::table_name();
-        $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE consent_date < (NOW() - INTERVAL %d DAY)", $days ) );
+        $table  = self::table_name();
+        $cutoff = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - $days * DAY_IN_SECONDS ); // consent_date is stored in site-local time.
+        // Delete in bounded batches: a single DELETE over millions of rows
+        // locks the table and can blow the binlog / replication lag on busy sites.
+        for ( $i = 0; $i < 200; $i++ ) {
+            $deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE consent_date < %s LIMIT 5000", $cutoff ) );
+            if ( ! $deleted || $deleted < 5000 ) {
+                break;
+            }
+        }
     }
 
     public static function query( $args = array() ) {

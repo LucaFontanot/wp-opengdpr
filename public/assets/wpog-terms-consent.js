@@ -54,45 +54,63 @@
     /**
      * Convert "text (https://url)" inside a DOM element to a clickable <a>.
      * Returns true if the element was modified.
+     *
+     * Built with DOM APIs only (text nodes + textContent + setAttribute):
+     * re-parsing label text as HTML would undo the server-side wp_kses()
+     * and let a quote in a URL break out of the href attribute.
      */
+    function makeLink(url, text) {
+        var a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+        a.textContent = text;
+        return a;
+    }
+
+    function isHttpUrl(url) {
+        return /^https?:\/\/[^\s"'<>]+$/i.test(url);
+    }
+
     function linkifyElement($el) {
-        if ($el.find('a').length) {
+        var el = $el[0];
+        if (!el || $el.find('a').length) {
             return false; // Already has clickable links.
         }
 
-        var html = $el.html();
+        var text = el.textContent || '';
+        var frag = document.createDocumentFragment();
+        var last = 0;
         var changed = false;
+        var m;
 
         // Pattern 1: "text (https://url)" → <a href="url">text</a>
-        // Run this first because Pattern 2 would re-match URLs inside
-        // the href attributes we just inserted, producing broken HTML.
-        html = html.replace(
-            /(\S[^(]*?)\s*\(((?:https?:\/\/)[^\s)]+)\)/g,
-            function (match, text, url) {
-                changed = true;
-                return '<a href="' + url + '" target="_blank" rel="noopener">' + $.trim(text) + '</a>';
-            }
-        );
+        var re1 = /(\S[^(]*?)\s*\((https?:\/\/[^\s)"'<>]+)\)/g;
+        while ((m = re1.exec(text)) !== null) {
+            frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+            frag.appendChild(makeLink(m[2], $.trim(m[1])));
+            last = re1.lastIndex;
+            changed = true;
+        }
 
-        // Pattern 2: bare URLs not already wrapped in <a>.
-        // Only run when Pattern 1 did NOT match — avoids re-matching
-        // the URL inside the href we just inserted above.
+        // Pattern 2: bare URLs (only when Pattern 1 did not match).
         if (!changed) {
-            html = html.replace(
-                /(https?:\/\/[^\s<]+)/g,
-                function (match, url) {
-                    changed = true;
-                    return '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>';
-                }
-            );
+            var re2 = /(https?:\/\/[^\s<>"']+)/g;
+            while ((m = re2.exec(text)) !== null) {
+                frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+                frag.appendChild(makeLink(m[1], m[1]));
+                last = re2.lastIndex;
+                changed = true;
+            }
         }
 
-        if (changed) {
-            $el.html(html);
-            return true;
+        if (!changed) {
+            return false;
         }
-
-        return false;
+        frag.appendChild(document.createTextNode(text.slice(last)));
+        el.textContent = '';
+        el.appendChild(frag);
+        return true;
     }
 
     /**
@@ -111,12 +129,10 @@
 
             // Fallback: no URL in text — use data-wpog-url attribute.
             var fallbackUrl = $label.attr('data-wpog-url');
-            if (fallbackUrl) {
+            if (fallbackUrl && isHttpUrl(fallbackUrl)) {
                 var labelText = $.trim($label.text());
                 if (labelText) {
-                    $label.html(
-                        '<a href="' + fallbackUrl + '" target="_blank" rel="noopener">' + labelText + '</a>'
-                    );
+                    $label.empty().append(makeLink(fallbackUrl, labelText));
                 }
             }
         });

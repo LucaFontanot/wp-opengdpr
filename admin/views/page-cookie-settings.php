@@ -30,6 +30,21 @@ $g = WPOG_Settings::get( 'general' );
         <td><label><input type="checkbox" name="wpog[anonymize_ip]" value="1" <?php checked( $g['anonymize_ip'] ); ?> /> <?php esc_html_e( 'Required by GDPR', 'wp-opengdpr' ); ?></label></td></tr>
     <tr><th><?php esc_html_e( 'Log retention (days)', 'wp-opengdpr' ); ?></th>
         <td><input type="number" min="0" name="wpog[log_retention_days]" value="<?php echo esc_attr( $g['log_retention_days'] ); ?>" /></td></tr>
+    <tr><th><?php esc_html_e( 'Site behind a proxy / CDN', 'wp-opengdpr' ); ?></th>
+        <td><label><input type="checkbox" name="wpog[trust_proxy_headers]" value="1" <?php checked( ! empty( $g['trust_proxy_headers'] ) ); ?> /> <?php esc_html_e( 'Read the visitor IP from proxy headers (CF-Connecting-IP, True-Client-IP, X-Real-IP, X-Forwarded-For)', 'wp-opengdpr' ); ?></label>
+        <p class="description"><?php esc_html_e( 'Enable ONLY if the site is served through a reverse proxy, load balancer or CDN (e.g. Cloudflare). Otherwise every visitor shares the proxy IP: logged IPs are wrong and the consent-log rate limit (30/hour per IP) is reached site-wide.', 'wp-opengdpr' ); ?></p>
+        <p class="description"><strong><?php esc_html_e( 'Warning:', 'wp-opengdpr' ); ?></strong> <?php esc_html_e( 'if the server is also reachable directly (bypassing the proxy), visitors can forge these headers. In that case restrict direct access to the origin to the proxy IPs only.', 'wp-opengdpr' ); ?></p>
+        <?php
+        $detected = array();
+        foreach ( array( 'HTTP_CF_CONNECTING_IP' => 'CF-Connecting-IP', 'HTTP_TRUE_CLIENT_IP' => 'True-Client-IP', 'HTTP_X_REAL_IP' => 'X-Real-IP', 'HTTP_X_FORWARDED_FOR' => 'X-Forwarded-For' ) as $wpog_key => $wpog_label ) {
+            if ( ! empty( $_SERVER[ $wpog_key ] ) ) {
+                $detected[] = $wpog_label;
+            }
+        }
+        if ( $detected ) : ?>
+            <p class="description"><?php echo esc_html( sprintf( __( 'Proxy headers detected on this request: %s — this site appears to be behind a proxy.', 'wp-opengdpr' ), implode( ', ', $detected ) ) ); ?></p>
+        <?php endif; ?>
+        </td></tr>
 </table>
 <h2><?php esc_html_e( 'Floating Action Button', 'wp-opengdpr' ); ?></h2>
 <p class="description"><?php esc_html_e( 'A floating button that lets users re-open the cookie settings at any time after consenting.', 'wp-opengdpr' ); ?></p>

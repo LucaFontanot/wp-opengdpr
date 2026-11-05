@@ -97,9 +97,19 @@ class WPOG_Terms_My_Account {
                 self::create_privacy_request( $user->user_email, 'remove_personal_data' );
                 break;
         }
+
+        // Post/Redirect/Get: a browser refresh must not re-submit the action
+        // (which wrote a duplicate withdrawal row / re-sent request emails).
+        if ( function_exists( 'wc_get_account_endpoint_url' ) ) {
+            wp_safe_redirect( wc_get_account_endpoint_url( self::ENDPOINT ) );
+            exit;
+        }
     }
 
     private static function revoke_marketing( $user_id ) {
+        if ( '0' === (string) get_user_meta( $user_id, WPOG_Terms_Registration::META_MARKETING, true ) ) {
+            return; // Already withdrawn: don't log a duplicate withdrawal.
+        }
         update_user_meta( $user_id, WPOG_Terms_Registration::META_MARKETING, '0' );
 
         WPOG_Terms_Consent_Logger::log( array(

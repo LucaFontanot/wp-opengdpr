@@ -191,6 +191,13 @@ class WPOG_CF7_Integration {
         if ( empty( $s['checkbox_main_enabled'] ) || empty( $s['checkbox_main_required'] ) ) {
             return $spam;
         }
+        // Only enforce on forms that actually display the checkbox (scoped
+        // form ids / manual mode), otherwise every other CF7 form on the site
+        // would be rejected as spam.
+        $contact_form = ( $submission && method_exists( $submission, 'get_contact_form' ) ) ? $submission->get_contact_form() : null;
+        if ( ! self::form_has_consent( $contact_form, $s, 'main' ) ) {
+            return $spam;
+        }
 
         $given = isset( $_POST[ self::FIELD_MAIN ] ) && '1' === (string) wp_unslash( $_POST[ self::FIELD_MAIN ] );
         if ( ! $given ) {
@@ -218,6 +225,9 @@ class WPOG_CF7_Integration {
         if ( empty( $s['enabled'] ) || empty( $s['log_enabled'] ) ) {
             return;
         }
+        if ( ! self::form_has_consent( $contact_form, $s ) ) {
+            return; // Form without consent checkbox: nothing to prove.
+        }
 
         $page_url = '';
         if ( $submission && method_exists( $submission, 'get_meta' ) ) {
@@ -241,6 +251,30 @@ class WPOG_CF7_Integration {
     }
 
     /* ---------- helpers ---------- */
+
+    /**
+     * True when the given CF7 form renders the consent checkbox: either via
+     * automatic injection (and the form is in scope) or via a manual
+     * [wpog_privacy_consent] / [wpog_marketing_consent] form-tag.
+     */
+    public static function form_has_consent( $contact_form, $s, $which = 'any' ) {
+        if ( ! $contact_form || ! method_exists( $contact_form, 'id' ) ) {
+            return false;
+        }
+        $auto = ! empty( $s['cf7_auto_inject'] ) && 'manual' !== ( $s['cf7_position'] ?? 'before_submit' );
+        if ( $auto && self::is_form_enabled( $contact_form->id(), $s ) ) {
+            return true;
+        }
+        if ( method_exists( $contact_form, 'scan_form_tags' ) ) {
+            $types = array( 'wpog_privacy_consent', 'wpog_privacy_consent*' );
+            if ( 'main' !== $which ) {
+                $types = array_merge( $types, array( 'wpog_marketing_consent', 'wpog_marketing_consent*' ) );
+            }
+            $tags = $contact_form->scan_form_tags( array( 'type' => $types ) );
+            return ! empty( $tags );
+        }
+        return false;
+    }
 
     public static function is_form_enabled( $form_id, $s ) {
         $ids = isset( $s['cf7_form_ids'] ) ? (array) $s['cf7_form_ids'] : array();

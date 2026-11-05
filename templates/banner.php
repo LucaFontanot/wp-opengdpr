@@ -9,7 +9,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $general = WPOG_Settings::get( 'general' );
 $banner  = WPOG_Settings::get( 'banner' );
-$show    = WPOG_Consent::should_show_banner();
+// Always rendered hidden: wpog-consent.js reads the consent cookie in the
+// browser and shows the banner when needed. Server-side cookie-dependent
+// markup would be poisoned by full-page caches.
+$show    = false;
 $pos_raw = $banner['position'];
 $is_box  = ! in_array( $pos_raw, array( 'top', 'bottom' ), true );
 $pos_cls = 'wpog-pos-' . sanitize_html_class( $pos_raw );

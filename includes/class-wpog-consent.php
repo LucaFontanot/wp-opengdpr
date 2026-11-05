@@ -19,14 +19,18 @@ class WPOG_Consent {
         if ( empty( $_COOKIE[ self::COOKIE_NAME ] ) ) {
             return null;
         }
-        $raw = wp_unslash( $_COOKIE[ self::COOKIE_NAME ] );
+        $raw = wp_unslash( (string) $_COOKIE[ self::COOKIE_NAME ] );
+        if ( strlen( $raw ) > 1024 ) {
+            return null;
+        }
         $data = json_decode( $raw, true );
         if ( ! is_array( $data ) ) {
             return null;
         }
-        // Validate version & expiry.
-        $policy = WPOG_Settings::get( 'general', 'policy_version' );
-        if ( ! empty( $data['version'] ) && $data['version'] !== $policy ) {
+        // Validate version & expiry. A cookie without a version is treated as
+        // stale (previously it bypassed the policy-version check entirely).
+        $policy = (string) WPOG_Settings::get( 'general', 'policy_version' );
+        if ( ! isset( $data['version'] ) || (string) $data['version'] !== $policy ) {
             return null;
         }
         if ( ! empty( $data['date'] ) ) {
@@ -78,23 +82,62 @@ class WPOG_Consent {
      * Cookie writing happens client-side (so it works without a page reload).
      */
     public static function ajax_save() {
-        check_ajax_referer( 'wpog_consent', 'nonce' );
+        // The nonce is only enforced for logged-in users. For anonymous
+        // visitors a WordPress nonce gives no CSRF protection (it is the same
+        // for every visitor) and, on sites behind a full-page cache, the
+        // cached nonce expires after 12–24h: every consent log would then be
+        // rejected with "-1", silently destroying the GDPR audit trail.
+        if ( is_user_logged_in() && ! check_ajax_referer( 'wpog_consent', 'nonce', false ) ) {
+            wp_send_json_error( array( 'message' => 'Invalid nonce' ), 403 );
+        }
 
-        // Rate-limit by REMOTE_ADDR (unforgeable): max 30 writes per hour per IP.
-        $remote_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-        $rate_key   = 'wpog_rl_' . md5( $remote_ip );
-        $rate_count = (int) get_transient( $rate_key );
-        if ( $rate_count >= 30 ) {
+        if ( ! self::rate_limit_ok( 'ajax' ) ) {
             wp_send_json_error( array( 'message' => 'Too many requests' ), 429 );
         }
-        set_transient( $rate_key, $rate_count + 1, HOUR_IN_SECONDS );
 
-        $payload = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
+        $payload = isset( $_POST['payload'] ) ? wp_unslash( (string) $_POST['payload'] ) : '';
+        if ( strlen( $payload ) > 2048 ) {
+            wp_send_json_error( array( 'message' => 'Invalid payload' ), 400 );
+        }
         $data = json_decode( $payload, true );
-        if ( ! is_array( $data ) ) {
+        if ( ! is_array( $data ) || ( isset( $data['categories'] ) && ! is_array( $data['categories'] ) ) ) {
             wp_send_json_error( array( 'message' => 'Invalid payload' ), 400 );
         }
         WPOG_Logger::log( $data );
         wp_send_json_success();
+    }
+
+    /**
+     * Fixed-window rate limiter: max N writes per hour per client IP.
+     *
+     * Uses the persistent object cache when available (no DB writes on busy
+     * sites), falling back to transients. The IP comes from
+     * WPOG_Logger::get_client_ip(), so sites behind a reverse proxy / CDN
+     * must enable the `wpog_trust_proxy_headers` filter — otherwise every
+     * visitor shares the proxy IP and the limit is hit site-wide.
+     *
+     * @param string $bucket Namespace (e.g. 'ajax', 'cross').
+     * @return bool True when the request is allowed.
+     */
+    public static function rate_limit_ok( $bucket ) {
+        $limit = (int) apply_filters( 'wpog_rate_limit_per_hour', 30, $bucket );
+        if ( $limit <= 0 ) {
+            return true;
+        }
+        $ip  = WPOG_Logger::get_client_ip();
+        $key = 'wpog_rl_' . $bucket . '_' . md5( $ip . '|' . wp_salt( 'nonce' ) );
+
+        if ( wp_using_ext_object_cache() ) {
+            wp_cache_add( $key, 0, 'wpog', HOUR_IN_SECONDS );
+            $count = wp_cache_incr( $key, 1, 'wpog' );
+            return false === $count || $count <= $limit;
+        }
+
+        $count = (int) get_transient( $key );
+        if ( $count >= $limit ) {
+            return false;
+        }
+        set_transient( $key, $count + 1, HOUR_IN_SECONDS );
+        return true;
     }
 }

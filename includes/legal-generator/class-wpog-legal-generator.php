@@ -90,7 +90,7 @@ class WPOG_Legal_Generator {
 		if ( '' === $name ) {
 			$name = __( 'Untitled prompt', 'wp-opengdpr' );
 		}
-		$name = substr( $name, 0, 255 );
+		$name = mb_substr( $name, 0, 255 );
 
 		$form_data   = is_array( $data['form_data'] ?? null ) ? $data['form_data'] : array();
 		$prompt_text = (string) ( $data['prompt_text'] ?? '' );
@@ -99,10 +99,10 @@ class WPOG_Legal_Generator {
 		if ( is_string( $documents ) ) {
 			$documents = array_filter( array_map( 'trim', explode( ',', $documents ) ) );
 		}
-		$documents = array_values( array_intersect( (array) $documents, self::DOCS ) );
+		$documents = array_values( array_intersect( array_filter( (array) $documents, "is_string" ), self::DOCS ) );
 
 		$language = strtoupper( sanitize_text_field( $data['language'] ?? 'IT' ) );
-		$language = substr( $language, 0, 5 );
+		$language = mb_substr( $language, 0, 5 );
 
 		$now = current_time( 'mysql' );
 

@@ -20,10 +20,13 @@ class WPOG_Core {
 
     protected function __construct() {
         add_action( 'init', array( $this, 'load_textdomain' ) );
-        add_action( 'plugins_loaded', array( __CLASS__, 'maybe_upgrade' ) );
-
         // Register monthly cron schedule (not built into WordPress).
         add_filter( 'cron_schedules', array( __CLASS__, 'register_cron_schedules' ) );
+
+        // The constructor itself runs ON plugins_loaded (priority 10). A callback
+        // added to the same hook/priority while it is executing is never called,
+        // so the upgrade routine must be invoked directly.
+        self::maybe_upgrade();
 
         // AJAX consent save (public + private).
         add_action( 'wp_ajax_wpog_save_consent', array( 'WPOG_Consent', 'ajax_save' ) );
@@ -85,6 +88,9 @@ class WPOG_Core {
     }
 
     public static function activate() {
+        // Activation runs after plugins_loaded and before our constructor: make
+        // the custom "monthly" recurrence known so the cookie-DB cron is scheduled.
+        add_filter( 'cron_schedules', array( __CLASS__, 'register_cron_schedules' ) );
         WPOG_Logger::install_table();
         WPOG_Tracking::install_table();
         WPOG_Form_Consent_Logger::install_table();
@@ -130,6 +136,12 @@ class WPOG_Core {
         }
 
         update_option( 'wpog_db_version', WPOG_Settings::DB_VERSION );
+
+        // Re-assert cron events (they may be missing on sites upgraded in place).
+        if ( ! wp_next_scheduled( 'wpog_daily_event' ) ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'wpog_daily_event' );
+        }
+        WPOG_Cookie_Database::schedule_cron();
 
         // 1.5.0: flush rewrite rules so the My Account privacy endpoint
         // (/my-account/privacy-consent/) resolves without needing a manual

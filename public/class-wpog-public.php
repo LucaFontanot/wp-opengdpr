@@ -76,8 +76,13 @@ class WPOG_Public {
         $p   = WPOG_Settings::get( 'popup' );
         $g   = WPOG_Settings::get( 'general' );
 
-        $fab_bg   = ! empty( $g['fab_bg_color'] )   ? $g['fab_bg_color']   : $b['primary_bg'];
-        $fab_text = ! empty( $g['fab_text_color'] )  ? $g['fab_text_color'] : $b['primary_text'];
+        // Re-validate at output time (defence in depth against values stored
+        // before sanitisation was tightened, or written by other code).
+        $b = WPOG_Settings::sanitize_banner( $b );
+        $p = WPOG_Settings::sanitize_popup( $p );
+
+        $fab_bg   = sanitize_hex_color( (string) ( $g['fab_bg_color'] ?? '' ) ) ?: $b['primary_bg'];
+        $fab_text = sanitize_hex_color( (string) ( $g['fab_text_color'] ?? '' ) ) ?: $b['primary_text'];
 
         $css = "
         .wpog-banner{background:{$b['bg_color']};color:{$b['text_color']};font-size:{$b['font_size']}px;}

@@ -135,7 +135,16 @@ class WPOG_Domain_Blocker {
             return;
         }
 
-        $consent = WPOG_Consent::allowed_categories();
+        // Cache-safe default-deny. The visitor's real consent is read from the
+        // cookie in the browser (window.wpogConsent, set by
+        // WPOG_Script_Blocker::render_head_top at wp_head priority -1), which
+        // wpog-blocker.js prefers over this value.
+        $consent = array(
+            'necessary'  => true,
+            'functional' => false,
+            'analytics'  => false,
+            'marketing'  => false,
+        );
         // Same-origin host is always allowed (never blocked).
         $same_origin = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
 

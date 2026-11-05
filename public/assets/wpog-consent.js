@@ -31,9 +31,22 @@
         if (!raw) { return null; }
         try {
             var data = JSON.parse(raw);
-            if (data.version && data.version !== D.version) { return null; }
+            if (!data || typeof data !== 'object' || !data.categories || typeof data.categories !== 'object') { return null; }
+            // Policy version must match exactly (a missing version = stale consent).
+            if (String(data.version) !== String(D.version)) { return null; }
+            // Enforce the configured consent duration (same rule as the server).
+            if (data.date && D.duration) {
+                var t = Date.parse(data.date);
+                if (!isNaN(t) && (Date.now() - t) > D.duration * 864e5) { return null; }
+            }
             return data;
         } catch (e) { return null; }
+    }
+
+    function syncToggles(cats) {
+        document.querySelectorAll('#wpog-popup input[data-wpog-cat]').forEach(function (inp) {
+            inp.checked = !!(cats && cats[inp.getAttribute('data-wpog-cat')]);
+        });
     }
 
     function saveConsent(action, cats) {
@@ -176,6 +189,7 @@
         var consent = loadConsent();
         if (consent) {
             window.wpogConsent = consent.categories;
+            syncToggles(consent.categories);
             activateAll(consent.categories);
             hideBanner();
             showFab();

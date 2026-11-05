@@ -110,6 +110,12 @@ class WPOG_Terms_Registration {
         if ( ! $errors instanceof WP_Error ) {
             $errors = new WP_Error();
         }
+        // woocommerce_registration_errors also fires when an account is created
+        // during checkout (classic and Store API), where these fields are not
+        // rendered: checkout consent is validated by the checkout integrations.
+        if ( ! self::is_account_registration_form() ) {
+            return $errors;
+        }
         $s = WPOG_Settings::get( 'terms_consent' );
 
         if ( ! empty( $s['require_privacy_acceptance'] ) && ! self::posted( self::FIELD_PRIVACY ) ) {
@@ -137,7 +143,26 @@ class WPOG_Terms_Registration {
             return;
         }
 
-        $s             = WPOG_Settings::get( 'terms_consent' );
+        $s = WPOG_Settings::get( 'terms_consent' );
+
+        if ( ! self::is_account_registration_form() ) {
+            // Account created during the classic checkout: mirror the checkout
+            // checkboxes to the profile so the customer can later withdraw the
+            // marketing consent from My Account (GDPR Art. 7(3)). The checkout
+            // integration writes the audit-trail rows itself.
+            if ( isset( $_POST[ WPOG_WooCommerce_Integration::FIELD_PRIVACY ] ) || isset( $_POST[ WPOG_WooCommerce_Integration::FIELD_MARKETING ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                if ( ! empty( $s['require_privacy_acceptance'] ) ) {
+                    update_user_meta( $customer_id, self::META_PRIVACY, self::posted( WPOG_WooCommerce_Integration::FIELD_PRIVACY ) ? '1' : '0' );
+                }
+                if ( ! empty( $s['show_marketing_consent'] ) ) {
+                    update_user_meta( $customer_id, self::META_MARKETING, self::posted( WPOG_WooCommerce_Integration::FIELD_MARKETING ) ? '1' : '0' );
+                }
+                update_user_meta( $customer_id, self::META_DATE, current_time( 'mysql' ) );
+                update_user_meta( $customer_id, self::META_IP, WPOG_Logger::anonymize_ip( WPOG_Logger::get_client_ip() ) );
+            }
+            return;
+        }
+
         $privacy_given = self::posted( self::FIELD_PRIVACY );
         $mkt_given     = self::posted( self::FIELD_MARKETING );
         $ip            = WPOG_Logger::anonymize_ip( WPOG_Logger::get_client_ip() );
@@ -185,6 +210,14 @@ class WPOG_Terms_Registration {
     }
 
     /* ---------- helpers ---------- */
+
+    /**
+     * True only for the My Account registration form submission (which
+     * carries WooCommerce's own registration nonce field).
+     */
+    private static function is_account_registration_form() {
+        return isset( $_POST['woocommerce-register-nonce'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+    }
 
     /**
      * True when a checkbox field was posted with the exact value '1'. The

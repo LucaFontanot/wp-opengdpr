@@ -54,7 +54,7 @@ $b = WPOG_Settings::get( 'banner' );
 </table>
 <h2><?php esc_html_e( 'Live preview', 'wp-opengdpr' ); ?></h2>
 <div class="wpog-preview" style="background:<?php echo esc_attr( $b['bg_color'] ); ?>;color:<?php echo esc_attr( $b['text_color'] ); ?>;padding:16px;">
-    <p><?php echo esc_html( WPOG_Settings::string( 'banner_message' ) ); ?></p>
+    <p><?php echo wp_kses_post( WPOG_Settings::string( 'banner_message' ) ); ?></p>
     <button type="button" style="background:<?php echo esc_attr( $b['secondary_bg'] ); ?>;color:<?php echo esc_attr( $b['secondary_text'] ); ?>;border:0;padding:10px 16px;border-radius:<?php echo esc_attr( $b['border_radius'] ); ?>px;"><?php echo esc_html( WPOG_Settings::string( 'banner_reject_all' ) ); ?></button>
     <button type="button" style="background:<?php echo esc_attr( $b['secondary_bg'] ); ?>;color:<?php echo esc_attr( $b['secondary_text'] ); ?>;border:0;padding:10px 16px;border-radius:<?php echo esc_attr( $b['border_radius'] ); ?>px;"><?php echo esc_html( WPOG_Settings::string( 'banner_customize' ) ); ?></button>
     <button type="button" style="background:<?php echo esc_attr( $b['primary_bg'] ); ?>;color:<?php echo esc_attr( $b['primary_text'] ); ?>;border:0;padding:10px 16px;border-radius:<?php echo esc_attr( $b['border_radius'] ); ?>px;"><?php echo esc_html( WPOG_Settings::string( 'banner_accept_all' ) ); ?></button>

@@ -83,18 +83,26 @@ class WPOG_Cross_Domain {
             return $served;
         }
 
-        $origin = self::get_request_origin();
-        if ( $origin ) {
+        // CORS: only ever reflect origins that are on the whitelist. The
+        // endpoints are anonymous and never rely on cookies, so credentials
+        // are NOT allowed (previously any Origin was reflected together with
+        // Access-Control-Allow-Credentials: true).
+        $origin  = isset( $_SERVER['HTTP_ORIGIN'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
+        $allowed = $origin && self::is_domain_allowed( $origin );
+        if ( $allowed ) {
             $server->send_header( 'Access-Control-Allow-Origin', $origin );
-            $server->send_header( 'Access-Control-Allow-Credentials', 'true' );
         }
+        $server->send_header( 'Vary', 'Origin' );
+        $server->send_header( 'X-Content-Type-Options', 'nosniff' );
 
         // ── CORS preflight ──
         if ( 'OPTIONS' === $request->get_method() ) {
-            $server->send_header( 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS' );
-            $server->send_header( 'Access-Control-Allow-Headers', 'Content-Type' );
-            $server->send_header( 'Access-Control-Max-Age', '86400' );
-            status_header( 200 );
+            if ( $allowed ) {
+                $server->send_header( 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS' );
+                $server->send_header( 'Access-Control-Allow-Headers', 'Content-Type' );
+                $server->send_header( 'Access-Control-Max-Age', '86400' );
+            }
+            status_header( $allowed ? 204 : 403 );
             exit;
         }
 
@@ -102,9 +110,12 @@ class WPOG_Cross_Domain {
         if ( 'GET' === $request->get_method() && self::$bridge_js_buffer !== null ) {
             $js = self::$bridge_js_buffer;
             self::$bridge_js_buffer = null;
+            $ok = ( $result instanceof WP_HTTP_Response ) && 200 === $result->get_status();
+            status_header( $ok ? 200 : 403 );
             $server->send_header( 'Content-Type', 'application/javascript; charset=utf-8' );
-            $server->send_header( 'Cache-Control', 'public, max-age=300' );
-            $server->send_header( 'Vary', 'Origin' );
+            // Never let a shared cache/CDN store a "not authorized" answer and
+            // serve it to legitimate sites.
+            $server->send_header( 'Cache-Control', $ok ? 'public, max-age=300' : 'no-store' );
             echo $js; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — deliberately raw JS
             return true; // Signal: request already served.
         }
@@ -250,17 +261,17 @@ class WPOG_Cross_Domain {
             );
         }
 
-        // Rate-limit by origin + IP: max 30 writes per hour.
-        $remote_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-        $rate_key   = 'wpog_cross_rl_' . md5( $origin . '_' . $remote_ip );
-        $rate_count = (int) get_transient( $rate_key );
-        if ( $rate_count >= 30 ) {
+        // NOTE: the Origin header is trivially forgeable by non-browser
+        // clients, so the whitelist only stops browsers on other sites; the
+        // real abuse protection is the per-IP rate limit below. It is keyed by
+        // client IP only (not origin+IP) so it cannot be bypassed by rotating
+        // subdomains of a "*.example.com" wildcard entry.
+        if ( ! WPOG_Consent::rate_limit_ok( 'cross' ) ) {
             return new WP_REST_Response(
                 array( 'ok' => false, 'reason' => 'rate_limited' ),
                 429
             );
         }
-        set_transient( $rate_key, $rate_count + 1, HOUR_IN_SECONDS );
 
         $body    = $request->get_json_params();
         $payload = is_array( $body ) ? $body : null;
@@ -282,10 +293,8 @@ class WPOG_Cross_Domain {
         // Use the same logging pipeline as the WordPress front-end.
         WPOG_Logger::log( $payload );
 
-        $response = new WP_REST_Response( array( 'ok' => true ), 200 );
-        $response->header( 'Access-Control-Allow-Origin', $origin );
-        $response->header( 'Access-Control-Allow-Credentials', 'true' );
-        return $response;
+        // CORS headers are added centrally in on_pre_serve_request().
+        return new WP_REST_Response( array( 'ok' => true ), 200 );
     }
 
     /* ------------------------------------------------------------------ */
@@ -305,8 +314,9 @@ class WPOG_Cross_Domain {
     private static function generate_bridge_js() {
         // ── Read every option that influences the bridge output ──
         $general       = WPOG_Settings::get( 'general' );
-        $banner        = WPOG_Settings::get( 'banner' );
-        $popup         = WPOG_Settings::get( 'popup' );
+        // Re-validated: these values are concatenated into CSS on third-party sites.
+        $banner        = WPOG_Settings::sanitize_banner( WPOG_Settings::get( 'banner' ) );
+        $popup         = WPOG_Settings::sanitize_popup( WPOG_Settings::get( 'popup' ) );
         $categories    = WPOG_Settings::get( 'categories' );
         $scripts_data  = WPOG_Settings::get( 'scripts' );
         $translations  = get_option( 'wpog_translations', array() );
@@ -346,8 +356,8 @@ class WPOG_Cross_Domain {
             'fabEnabled'      => ! empty( $general['fab_enabled'] ) ? 1 : 0,
             'fabPosition'     => in_array( $general['fab_position'] ?? 'bottom-right', array( 'bottom-right', 'bottom-left' ), true ) ? $general['fab_position'] : 'bottom-right',
             'fabLabel'        => $general['fab_label'] ?? '🍪',
-            'fabBgColor'      => ! empty( $general['fab_bg_color'] ) ? $general['fab_bg_color'] : $banner['primary_bg'],
-            'fabTextColor'    => ! empty( $general['fab_text_color'] ) ? $general['fab_text_color'] : $banner['primary_text'],
+            'fabBgColor'      => sanitize_hex_color( (string) ( $general['fab_bg_color'] ?? '' ) ) ?: $banner['primary_bg'],
+            'fabTextColor'    => sanitize_hex_color( (string) ( $general['fab_text_color'] ?? '' ) ) ?: $banner['primary_text'],
             'autoblockerEnabled' => ! empty( $general['autoblocker_enabled'] ) ? 1 : 0,
         );
 
@@ -662,7 +672,7 @@ cList+='<details class="wpog-cookie-details"><summary>'+H(s.popup_cookies_summar
 for(var j=0;j<cookies.length;j++){var ck=cookies[j];cList+='<tr><td>'+H(ck.name||'')+'</td><td>'+H(ck.provider||'')+'</td><td>'+H(ck.duration||'')+'</td><td>'+H(ck.purpose||'')+'</td></tr>';}
 cList+='</tbody></table></details>';
 }
-var toggle=disabled?'<span class="wpog-always-active">'+H(s.popup_always_active)+'</span>':'<label class="wpog-toggle"><input type="checkbox" data-wpog-cat="'+H(k)+'" checked><span class="wpog-toggle-slider"></span></label>';
+var toggle=disabled?'<span class="wpog-always-active">'+H(s.popup_always_active)+'</span>':'<label class="wpog-toggle"><input type="checkbox" data-wpog-cat="'+H(k)+'"><span class="wpog-toggle-slider"></span></label>';
 html+='<div class="wpog-category"><div class="wpog-category-head"><strong>'+H(cat.name)+'</strong>'+toggle+'</div><p class="wpog-category-desc">'+H(cat.description)+'</p>'+cList+'</div>';
 }
 if(S.cookiePolicy){html+='<div class="wpog-cookie-policy">'+S.cookiePolicy+'</div>';}
@@ -717,7 +727,7 @@ HTML;
 function uuid(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});}
 function readCookie(name){var m=document.cookie.match(new RegExp('(?:^|;\\s*)'+name+'=([^;]+)'));return m?decodeURIComponent(m[1]):null;}
 function writeCookie(name,value,days){var d=new Date();d.setTime(d.getTime()+(days*24*60*60*1000));var attrs='; expires='+d.toUTCString()+'; path=/; SameSite=Lax';if(location.protocol==='https:')attrs+='; Secure';document.cookie=name+'='+encodeURIComponent(value)+attrs;}
-function loadConsent(){var raw=readCookie(D.cookieName);if(!raw)return null;try{var data=JSON.parse(raw);if(data.version&&data.version!==D.version)return null;return data;}catch(e){return null;}}
+function loadConsent(){var raw=readCookie(D.cookieName);if(!raw)return null;try{var data=JSON.parse(raw);if(!data||typeof data!=='object'||!data.categories||typeof data.categories!=='object')return null;if(String(data.version)!==String(D.version))return null;if(data.date&&D.duration){var t=Date.parse(data.date);if(!isNaN(t)&&(Date.now()-t)>D.duration*864e5)return null;}return data;}catch(e){return null;}}
 function saveConsent(action,cats){
 var id=readCookie(D.cookieIdName)||uuid();
 var payload={id:id,date:new Date().toISOString(),version:D.version,categories:{necessary:true,functional:!!cats.functional,analytics:!!cats.analytics,marketing:!!cats.marketing},action:action};
@@ -762,7 +772,9 @@ function setupReopenLinks(){document.querySelectorAll('a[href="#wpog-settings"],
 /* ---- custom scripts injection ---- */
 function injectCustomScripts(cats){
 var scripts=S.customScripts;if(!scripts||!scripts.length)return;
-scripts.forEach(function(sc){if(!cats[sc.category])return;
+/* Inject each snippet at most once per page (saving consent twice used to duplicate trackers). */
+window.__wpogInjected=window.__wpogInjected||{};
+scripts.forEach(function(sc,idx){if(!cats[sc.category]||window.__wpogInjected[idx])return;window.__wpogInjected[idx]=1;
 if(sc.type==='inline'){var s=document.createElement('script');s.textContent=sc.content;document.body.appendChild(s);}
 else if(sc.type==='src'){var s=document.createElement('script');s.src=sc.content;document.body.appendChild(s);}
 else if(sc.type==='iframe'){var f=document.createElement('iframe');f.src=sc.content;f.style.display='none';document.body.appendChild(f);}
@@ -777,7 +789,7 @@ FAB=document.getElementById('wpog-fab');
 BANNER_OVERLAY=document.getElementById('wpog-banner-overlay');
 bind(BANNER);bind(POPUP);bindDocument();setupReopenLinks();
 var consent=loadConsent();
-if(consent){window.wpogConsent=consent.categories;activateAll(consent.categories);hideBanner();showFab();}
+if(consent){window.wpogConsent=consent.categories;document.querySelectorAll('#wpog-popup input[data-wpog-cat]').forEach(function(inp){inp.checked=!!consent.categories[inp.getAttribute('data-wpog-cat')];});activateAll(consent.categories);if(window.WPOG_BLOCKER&&window.WPOG_BLOCKER.unblock){window.WPOG_BLOCKER.unblock();}hideBanner();showFab();}
 else{showBanner();hideFab();}
 }
 
@@ -794,6 +806,8 @@ CONSENT;
         return <<<'BLOCKER'
 (function(){
 var CFG=S.blockerConfig;if(!CFG||!Array.isArray(CFG.rules)||!CFG.rules.length)return;
+/* Read stored consent synchronously so already-consented domains are never blocked. */
+try{var _m=document.cookie.match(new RegExp('(?:^|;\\s*)'+S.config.cookieName+'=([^;]+)'));if(_m&&!window.wpogConsent){var _d=JSON.parse(decodeURIComponent(_m[1]));if(_d&&String(_d.version)===String(S.config.version)&&_d.categories&&typeof _d.categories==='object'){var _ok=true;if(_d.date){var _t=Date.parse(_d.date);if(!isNaN(_t)&&(Date.now()-_t)>S.config.duration*864e5)_ok=false;}if(_ok)window.wpogConsent=_d.categories;}}}catch(e){}
 CFG.sameOrigin=location.hostname||'';
 var BLOCKABLE=['script','iframe','img','link','audio','video','source','embed','object','picture'];
 var PLACEHOLDER_CLASS=CFG.placeholder||'wpog-lazyload';

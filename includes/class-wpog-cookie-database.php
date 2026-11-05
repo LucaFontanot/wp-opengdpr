@@ -74,7 +74,8 @@ class WPOG_Cookie_Database {
             wildcard_match TINYINT UNSIGNED DEFAULT 0,
             UNIQUE KEY source_id_idx (source_id),
             KEY cookie_name_idx (cookie_name),
-            KEY category_idx (category)
+            KEY category_idx (category),
+            KEY wildcard_idx (wildcard_match)
         ) {$charset_collate};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -114,7 +115,13 @@ class WPOG_Cookie_Database {
         }
 
         $body = wp_remote_retrieve_body( $response );
+        // Third-party data source: cap the payload size (the upstream file is
+        // a few MB) to protect memory if the source is compromised or broken.
+        if ( strlen( $body ) > 20 * MB_IN_BYTES ) {
+            return new WP_Error( 'too_large', 'Upstream cookie database exceeds 20 MB, refusing to import.' );
+        }
         $data = json_decode( $body, true );
+        unset( $body );
         if ( ! is_array( $data ) ) {
             return new WP_Error( 'parse_error', 'JSON decode failed or returned non-array.' );
         }
@@ -151,53 +158,70 @@ class WPOG_Cookie_Database {
         global $wpdb;
         $table = self::table_name();
         $count = 0;
+        if ( function_exists( 'set_time_limit' ) ) {
+            @set_time_limit( 300 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+        }
 
         // Collect all source IDs to delete stale entries afterwards.
         $incoming_ids = array();
+        $buffer       = array();
+        $flush        = function () use ( &$buffer, $wpdb, $table ) {
+            if ( empty( $buffer ) ) {
+                return;
+            }
+            // One multi-row upsert per chunk instead of SELECT + INSERT/UPDATE
+            // per record (~5k queries → ~15).
+            $placeholders = array();
+            $params       = array();
+            foreach ( $buffer as $v ) {
+                $placeholders[] = '(%s,%s,%s,%s,%s,%s,%s,%s,%d)';
+                array_push( $params, $v['source_id'], $v['platform'], $v['category'], $v['cookie_name'], $v['description'], $v['retention_period'], $v['data_controller'], $v['privacy_url'], $v['wildcard_match'] );
+            }
+            $sql = "INSERT INTO {$table} (source_id, platform, category, cookie_name, description, retention_period, data_controller, privacy_url, wildcard_match) VALUES "
+                . implode( ',', $placeholders )
+                . ' ON DUPLICATE KEY UPDATE platform=VALUES(platform), category=VALUES(category), cookie_name=VALUES(cookie_name), description=VALUES(description), retention_period=VALUES(retention_period), data_controller=VALUES(data_controller), privacy_url=VALUES(privacy_url), wildcard_match=VALUES(wildcard_match)';
+            $wpdb->query( $wpdb->prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $buffer = array();
+        };
 
         foreach ( $records as $row ) {
-            $source_id = trim( (string) ( $row['id'] ?? '' ) );
+            if ( ! is_array( $row ) ) {
+                continue;
+            }
+            $source_id = substr( sanitize_text_field( (string) ( $row['id'] ?? '' ) ), 0, 40 );
             if ( '' === $source_id ) {
                 continue;
             }
-            $cookie_name = trim( (string) ( $row['cookie'] ?? '' ) );
+            // Untrusted third-party data: sanitise every field before storing.
+            $cookie_name = substr( sanitize_text_field( (string) ( $row['cookie'] ?? '' ) ), 0, 255 );
             if ( '' === $cookie_name ) {
                 continue;
             }
 
             $incoming_ids[] = $source_id;
 
-            $values = array(
+            $buffer[] = array(
                 'source_id'        => $source_id,
-                'platform'         => substr( trim( (string) ( $row['_platform'] ?? $row['platform'] ?? '' ) ), 0, 255 ),
-                'category'         => strtolower( trim( (string) ( $row['category'] ?? '' ) ) ),
+                'platform'         => substr( sanitize_text_field( (string) ( $row['_platform'] ?? $row['platform'] ?? '' ) ), 0, 255 ),
+                'category'         => self::map_category( sanitize_text_field( (string) ( $row['category'] ?? '' ) ) ),
                 'cookie_name'      => $cookie_name,
-                'description'      => trim( (string) ( $row['description'] ?? '' ) ),
-                'retention_period' => substr( trim( (string) ( $row['retentionPeriod'] ?? '' ) ), 0, 128 ),
-                'data_controller'  => substr( trim( (string) ( $row['dataController'] ?? '' ) ), 0, 255 ),
-                'privacy_url'      => substr( esc_url_raw( trim( (string) ( $row['privacyLink'] ?? '' ) ) ), 0, 512 ),
+                'description'      => sanitize_textarea_field( (string) ( $row['description'] ?? '' ) ),
+                'retention_period' => substr( sanitize_text_field( (string) ( $row['retentionPeriod'] ?? '' ) ), 0, 128 ),
+                'data_controller'  => substr( sanitize_text_field( (string) ( $row['dataController'] ?? '' ) ), 0, 255 ),
+                'privacy_url'      => substr( esc_url_raw( trim( (string) ( $row['privacyLink'] ?? '' ) ), array( 'http', 'https' ) ), 0, 512 ),
                 'wildcard_match'   => ! empty( $row['wildcardMatch'] ) ? 1 : 0,
             );
-
-            // Map the DB category to plugin categories.
-            $values['category'] = self::map_category( $values['category'] );
-
-            // Upsert by source_id.
-            $existing = $wpdb->get_var( $wpdb->prepare(
-                "SELECT id FROM {$table} WHERE source_id = %s LIMIT 1",
-                $source_id
-            ) );
-
-            if ( $existing ) {
-                $wpdb->update( $table, $values, array( 'source_id' => $source_id ) );
-            } else {
-                $wpdb->insert( $table, $values );
-            }
             $count++;
+            if ( count( $buffer ) >= 200 ) {
+                $flush();
+            }
         }
+        $flush();
 
-        // Remove entries no longer present in the upstream database.
-        if ( ! empty( $incoming_ids ) ) {
+        // Remove entries no longer present in the upstream database — but
+        // never wipe the local copy because of a truncated/broken upstream file.
+        $existing_total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        if ( ! empty( $incoming_ids ) && count( $incoming_ids ) >= 0.5 * $existing_total ) {
             $placeholders = implode( ',', array_fill( 0, count( $incoming_ids ), '%s' ) );
             $wpdb->query(
                 $wpdb->prepare(
@@ -273,10 +297,15 @@ class WPOG_Cookie_Database {
         //    Approach: get all wildcard entries, then compare in PHP. The
         //    wildcard dataset is small enough (~hundreds) that a PHP-side
         //    filter is fine.
-        $wildcards = $wpdb->get_results(
-            "SELECT * FROM {$table} WHERE wildcard_match = 1"
-        );
-        foreach ( (array) $wildcards as $wc ) {
+        // Loaded once per request (lookup() is called for every row of the
+        // Detections page — previously one full table scan per row).
+        static $wildcards = null;
+        if ( null === $wildcards ) {
+            $wildcards = (array) $wpdb->get_results(
+                "SELECT * FROM {$table} WHERE wildcard_match = 1" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            );
+        }
+        foreach ( $wildcards as $wc ) {
             $base = preg_replace( '/[^a-z_]/i', '', $wc->cookie_name );
             $test = preg_replace( '/[^a-z_]/i', '', $cookie_name );
             if ( '' !== $base && stripos( $test, $base ) === 0 ) {
@@ -320,8 +349,7 @@ class WPOG_Cookie_Database {
         self::ensure_table();
         global $wpdb;
         $table = self::table_name();
-        $c = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-        return $c > 0;
+        return (bool) $wpdb->get_var( "SELECT 1 FROM {$table} LIMIT 1" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
     }
 
     /**
